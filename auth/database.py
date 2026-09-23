@@ -3,8 +3,12 @@ import hashlib
 
 DB_FILE = "users.db"
 
-def create_database():
+def get_connection():
     conn = sqlite3.connect(DB_FILE, check_same_thread=False)
+    return conn
+
+def create_database():
+    conn = get_connection()
     conn.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -27,7 +31,7 @@ def create_user(username, email, password):
     if not u or not e or not password:
         return False, "All fields are required."
     
-    conn = sqlite3.connect(DB_FILE, check_same_thread=False)
+    conn = get_connection()
     c = conn.cursor()
     c.execute("SELECT id FROM users WHERE username = ? OR email = ?", (u, e))
     if c.fetchone():
@@ -47,7 +51,7 @@ def create_user(username, email, password):
 def verify_user(username_or_email, password):
     create_database()
     val = username_or_email.strip().lower()
-    conn = sqlite3.connect(DB_FILE, check_same_thread=False)
+    conn = get_connection()
     c = conn.cursor()
     c.execute("SELECT username, password_hash FROM users WHERE username = ? OR email = ?", (val, val))
     row = c.fetchone()
