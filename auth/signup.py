@@ -2,31 +2,48 @@
 from auth.user_db import create_user
 
 def signup_page():
-    col_head, col_btn = st.columns([3, 1])
-    with col_head:
-        st.subheader("Create a New Account")
-    with col_btn:
-        if st.button("Back to Login", use_container_width=True):
-            st.session_state["auth_mode"] = "Login"
-            st.session_state["auth_page"] = "Login"
-            st.session_state["page"] = "Login"
-            st.rerun()
+    col_left, col_center, col_right = st.columns([1, 2, 1])
+    
+    with col_center:
+        st.markdown('''
+            <div style="text-align: center; padding: 20px 0 10px 0;">
+                <h2 style="margin-bottom: 4px; font-weight: 700; color: #1E293B;">Enterprise Multi-Agent RAG</h2>
+                <p style="color: #64748B; font-size: 14px; margin-top: 0;">Create your account to start querying enterprise data</p>
+            </div>
+        ''', unsafe_allow_html=True)
 
-    with st.form("signup_form"):
-        username = st.text_input("Username")
-        email = st.text_input("Email")
-        password = st.text_input("Password", type="password")
-        confirm_password = st.text_input("Confirm Password", type="password")
-        submit = st.form_submit_button("Sign Up", use_container_width=True)
-        
-        if submit:
-            if not username or not email or not password:
-                st.warning("All fields are required.")
-            elif password != confirm_password:
-                st.error("Passwords do not match.")
-            else:
-                success, msg = create_user(username, email, password)
-                if success:
-                    st.success("Account created successfully! Click 'Back to Login' above to sign in.")
-                else:
-                    st.error(msg)
+        with st.container(border=True):
+            st.markdown("<h4 style='margin-bottom: 16px; color: #334155;'>Create Account</h4>", unsafe_allow_html=True)
+            
+            with st.form("signup_form", clear_on_submit=False):
+                username = st.text_input("Username", placeholder="e.g. jdoe")
+                email = st.text_input("Email", placeholder="name@company.com")
+                password = st.text_input("Password", type="password", placeholder="Enter password")
+                re_password = st.text_input("Re-enter Password", type="password", placeholder="Confirm your password")
+                
+                submit = st.form_submit_button("Create Account", use_container_width=True, type="primary")
+                
+                if submit:
+                    if not username or not email or not password or not re_password:
+                        st.warning("All fields are required.")
+                    elif password != re_password:
+                        st.error("Passwords do not match.")
+                    else:
+                        success, msg = create_user(username, email, password)
+                        if success:
+                            st.session_state["reg_success_msg"] = "Account created successfully! You can now sign in."
+                            st.session_state["auth_page"] = "login"
+                            st.session_state["auth_mode"] = "login"
+                            st.session_state["page"] = "login"
+                            st.rerun()
+                        else:
+                            st.error(msg)
+
+        st.markdown("<div style='text-align: center; margin-top: 16px;'>", unsafe_allow_html=True)
+        st.write("Already have an account?")
+        if st.button("Back to Sign In", use_container_width=True):
+            st.session_state["auth_page"] = "login"
+            st.session_state["auth_mode"] = "login"
+            st.session_state["page"] = "login"
+            st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
