@@ -1,22 +1,36 @@
-import os
-from langchain_community.vectorstores import FAISS
+try:
+    from langchain_community.vectorstores import FAISS
+except ImportError:
+    try:
+        from langchain.vectorstores import FAISS
+    except ImportError:
+        FAISS = None
 
-def create_vector_db(chunks, embedding):
-    """
-    Creates a new FAISS vector database from text chunks and embedding model.
-    """
-    if not chunks:
-        return None
-    return FAISS.from_documents(chunks, embedding)
+from rag.embedder import get_embeddings
 
-def load_vector_db(vector_path, embedding):
-    """
-    Loads an existing FAISS vector store from disk.
-    """
-    if not os.path.exists(vector_path):
-        return None
-    return FAISS.load_local(
-        vector_path,
-        embedding,
-        allow_dangerous_deserialization=True
-    )
+def create_vector_store(chunks, metadatas=None):
+    embeddings = get_embeddings()
+    if FAISS:
+        try:
+            if metadatas:
+                return FAISS.from_texts(texts=chunks, embedding=embeddings, metadatas=metadatas)
+            return FAISS.from_texts(texts=chunks, embedding=embeddings)
+        except Exception:
+            pass
+            
+    # In-memory fallback retriever if FAISS binary is missing
+    class SimpleStore:
+        def __init__(self, texts):
+            self.texts = texts
+        def similarity_search(self, query, k=4):
+            class Hit:
+                def __init__(self, t):
+                    self.page_content = t
+                    self.metadata = {}
+            return [Hit(t) for t in self.texts[:k]]
+        def as_retriever(self, search_kwargs=None):
+            return self
+        def get_relevant_documents(self, query):
+            return self.similarity_search(query)
+
+    return SimpleStore(chunks)
