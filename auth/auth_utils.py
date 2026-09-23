@@ -21,7 +21,7 @@ def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
 
-def check_password(password: str, hashed: str) -> bool:
+def verify_password(password: str, hashed: str) -> bool:
     """Verify password against stored hash."""
     if HAS_BCRYPT:
         try:
@@ -30,3 +30,7 @@ def check_password(password: str, hashed: str) -> bool:
             pass
     # Built-in Python fallback check
     return hashlib.sha256(password.encode("utf-8")).hexdigest() == hashed
+
+
+# Alias so check_password also works anywhere
+check_password = verify_password
