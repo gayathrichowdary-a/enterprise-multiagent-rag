@@ -1,102 +1,57 @@
-# auth/database.py
-import sqlite3
-import os
+﻿import sqlite3
+import hashlib
 
-DB_FOLDER = "database"
-DB_PATH = os.path.join(DB_FOLDER, "users.db")
-
+DB_FILE = "users.db"
 
 def create_database():
-    os.makedirs(DB_FOLDER, exist_ok=True)
-
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-
-    # -----------------------------
-    # Users Table
-    # -----------------------------
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS users(
+    conn = sqlite3.connect(DB_FILE, check_same_thread=False)
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            full_name TEXT NOT NULL,
             username TEXT UNIQUE NOT NULL,
             email TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            password_hash TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
-    """)
-
-    # -----------------------------
-    # Documents Table
-    # -----------------------------
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS documents(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            file_name TEXT NOT NULL,
-            file_path TEXT NOT NULL,
-            upload_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(user_id) REFERENCES users(id)
-        )
-    """)
-
-    # -----------------------------
-    # Chat History Table
-    # -----------------------------
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS chat_history(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            chat_name TEXT NOT NULL,
-            query TEXT NOT NULL,
-            answer TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(user_id) REFERENCES users(id)
-        )
-    """)
-
-    # -----------------------------
-    # Episodic Memory Table
-    # -----------------------------
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS memory(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            memory TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-
-    # -----------------------------
-    # Profile Memory Table
-    # -----------------------------
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS profile_memory(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            key TEXT,
-            value TEXT,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(user_id) REFERENCES users(id)
-        )
-    """)
-
+    ''')
     conn.commit()
     conn.close()
 
+def hash_pw(password: str) -> str:
+    return hashlib.sha256(password.encode('utf-8')).hexdigest()
 
-def get_connection():
-    return sqlite3.connect(DB_PATH)
+def create_user(username, email, password):
+    create_database()
+    u = username.strip().lower()
+    e = email.strip().lower()
+    if not u or not e or not password:
+        return False, "All fields are required."
+    
+    conn = sqlite3.connect(DB_FILE, check_same_thread=False)
+    c = conn.cursor()
+    c.execute("SELECT id FROM users WHERE username = ? OR email = ?", (u, e))
+    if c.fetchone():
+        conn.close()
+        return False, "An account with this username or email already exists."
+    
+    try:
+        c.execute("INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)",
+                  (u, e, hash_pw(password)))
+        conn.commit()
+        conn.close()
+        return True, "Account created successfully!"
+    except Exception as err:
+        conn.close()
+        return False, f"Database error: {str(err)}"
 
-
-def get_user_by_username(username):
-    """Fetches user details by username from users table."""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT id, full_name, username, email, password, created_at FROM users WHERE username = ?",
-        (username,)
-    )
-    user = cursor.fetchone()
+def verify_user(username_or_email, password):
+    create_database()
+    val = username_or_email.strip().lower()
+    conn = sqlite3.connect(DB_FILE, check_same_thread=False)
+    c = conn.cursor()
+    c.execute("SELECT username, password_hash FROM users WHERE username = ? OR email = ?", (val, val))
+    row = c.fetchone()
     conn.close()
-    return user
+    if row and row[1] == hash_pw(password):
+        return True, row[0]
+    return False, None
