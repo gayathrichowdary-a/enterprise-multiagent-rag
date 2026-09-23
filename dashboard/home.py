@@ -7,12 +7,8 @@ def home_page():
 
     is_dark = st.session_state.get("ui_theme", "Light") == "Dark"
 
-    col_title, col_lang = st.columns([3.8, 1.4])
-    
-    with col_lang:
-        lang_choice = st.segmented_control(
-            label_visibility="collapsed"
-        )
+    col_title = st.container()
+    is_telugu = False
 
 
     # Multilingual Content Dictionary
@@ -38,7 +34,7 @@ def home_page():
         "p4_desc": "వివిధ పత్రాలను సమాంతరంగా విశ్లేషించి తేడాలను గుర్తించి, అథారిటీ నిబంధనల ఆధారంగా ఖచ్చితమైన నిర్ణయాన్ని ఇస్తుంది." if is_telugu else "Cross-analyzes multiple uploaded documents side-by-side. Highlights discrepancies, extracts overlapping clauses, and resolves ambiguities using authority tier precedence rules."
     }
 
-    with col_title:
+    if True:
         st.markdown(f"<h1 style='margin-bottom:0;'>{content['title']}</h1>", unsafe_allow_html=True)
         st.caption(content['subtitle'])
 
@@ -279,3 +275,4 @@ def home_page():
                 </p>
             </div>
         """, unsafe_allow_html=True)
+
