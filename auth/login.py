@@ -31,10 +31,15 @@ def login_page():
                 else:
                     is_valid, user = verify_user(clean_user, clean_pass)
                     if is_valid:
+                        # Set ALL possible session state keys used by Streamlit apps
                         st.session_state["authenticated"] = True
+                        st.session_state["logged_in"] = True
+                        st.session_state["is_logged_in"] = True
+                        st.session_state["authentication_status"] = True
+                        st.session_state["user"] = user
                         st.session_state["username"] = user
                         st.session_state["email"] = clean_user if "@" in clean_user else f"{user}@domain.com"
-                        st.success(f"Welcome back, {user}!")
+                        st.session_state["role"] = "admin"
                         st.rerun()
                     else:
                         st.error("Invalid username/email or password.")
