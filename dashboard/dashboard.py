@@ -1,4 +1,4 @@
-# dashboard/dashboard.py
+﻿# dashboard/dashboard.py
 import streamlit as st
 from dashboard.upload import document_sidebar
 from dashboard.chat import chat_sidebar
@@ -114,7 +114,7 @@ def inject_global_theme(is_dark=False):
 
 def dashboard():
     """Main dashboard layout and navigation sidebar."""
-    user = st.session_state.get("user", {})
+    user = st.session_state.get("user", {}); user = {"name": str(user), "full_name": str(user)} if isinstance(user, str) else user
     user_name = user.get("full_name") or user.get("name", "Gayathri")
     user_email = user.get("email", "enterprise@system.ai")
 

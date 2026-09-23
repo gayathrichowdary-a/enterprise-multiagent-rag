@@ -29,11 +29,20 @@ def login_page():
                 if not u_clean or not p_clean:
                     st.warning("Please enter your username/email and password.")
                 else:
-                    is_valid, user = verify_user(u_clean, p_clean)
+                    is_valid, username = verify_user(u_clean, p_clean)
                     if is_valid:
+                        email_addr = u_clean if "@" in u_clean else f"{username}@company.com"
+                        
+                        # Set user as dictionary with all expected properties
+                        st.session_state.user = {
+                            "username": username,
+                            "name": username.capitalize(),
+                            "full_name": username.capitalize(),
+                            "email": email_addr,
+                            "role": "Admin"
+                        }
+                        st.session_state.username = username
                         st.session_state.logged_in = True
-                        st.session_state.username = user
-                        st.session_state.user = user
                         st.session_state.page = "dashboard"
                         st.rerun()
                     else:
