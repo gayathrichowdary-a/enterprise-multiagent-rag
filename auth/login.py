@@ -18,14 +18,11 @@ def login_page():
         with st.container(border=True):
             st.markdown("<h3 style='margin-bottom: 20px; color: #1E293B; text-align: center;'>Login</h3>", unsafe_allow_html=True)
             
-            # Using direct inputs with keys to prevent form desync
             user_identity = st.text_input("Username or Email", key="login_identity_input", placeholder="Enter your username or email")
             password = st.text_input("Password", type="password", key="login_password_input", placeholder="Enter your password")
             
             st.write("")
-            login_clicked = st.button("Login", use_container_width=True, type="primary")
-            
-            if login_clicked:
+            if st.button("Login", use_container_width=True, type="primary"):
                 clean_user = user_identity.strip()
                 clean_pass = password.strip()
                 

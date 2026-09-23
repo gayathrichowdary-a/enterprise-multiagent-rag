@@ -13,35 +13,38 @@ def signup_page():
         ''', unsafe_allow_html=True)
 
         with st.container(border=True):
-            st.markdown("<h4 style='margin-bottom: 16px; color: #334155;'>Create Account</h4>", unsafe_allow_html=True)
+            st.markdown("<h3 style='margin-bottom: 20px; color: #1E293B; text-align: center;'>Create Account</h3>", unsafe_allow_html=True)
             
-            with st.form("signup_form", clear_on_submit=False):
-                username = st.text_input("Username", placeholder="e.g. jdoe")
-                email = st.text_input("Email", placeholder="name@company.com")
-                password = st.text_input("Password", type="password", placeholder="Enter password")
-                re_password = st.text_input("Re-enter Password", type="password", placeholder="Confirm your password")
+            username = st.text_input("Username", key="reg_username", placeholder="e.g. jdoe")
+            email = st.text_input("Email", key="reg_email", placeholder="name@company.com")
+            password = st.text_input("Password", type="password", key="reg_password", placeholder="Enter password")
+            re_password = st.text_input("Re-enter Password", type="password", key="reg_re_password", placeholder="Confirm your password")
+            
+            st.write("")
+            if st.button("Create Account", use_container_width=True, type="primary"):
+                u = username.strip()
+                e = email.strip()
+                p = password.strip()
+                rp = re_password.strip()
                 
-                submit = st.form_submit_button("Create Account", use_container_width=True, type="primary")
-                
-                if submit:
-                    if not username or not email or not password or not re_password:
-                        st.warning("All fields are required.")
-                    elif password != re_password:
-                        st.error("Passwords do not match.")
+                if not u or not e or not p or not rp:
+                    st.warning("All fields are required.")
+                elif p != rp:
+                    st.error("Passwords do not match.")
+                else:
+                    success, msg = create_user(u, e, p)
+                    if success:
+                        st.session_state["reg_success_msg"] = "Account created successfully! You can now log in."
+                        st.session_state["auth_page"] = "login"
+                        st.session_state["auth_mode"] = "login"
+                        st.session_state["page"] = "login"
+                        st.rerun()
                     else:
-                        success, msg = create_user(username, email, password)
-                        if success:
-                            st.session_state["reg_success_msg"] = "Account created successfully! You can now sign in."
-                            st.session_state["auth_page"] = "login"
-                            st.session_state["auth_mode"] = "login"
-                            st.session_state["page"] = "login"
-                            st.rerun()
-                        else:
-                            st.error(msg)
+                        st.error(msg)
 
-        st.markdown("<div style='text-align: center; margin-top: 16px;'>", unsafe_allow_html=True)
+        st.markdown("<div style='text-align: center; margin-top: 20px;'>", unsafe_allow_html=True)
         st.write("Already have an account?")
-        if st.button("Back to Sign In", use_container_width=True):
+        if st.button("Back to Login", use_container_width=True):
             st.session_state["auth_page"] = "login"
             st.session_state["auth_mode"] = "login"
             st.session_state["page"] = "login"
