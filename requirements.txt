@@ -1,0 +1,14 @@
+streamlit
+bcrypt
+python-dotenv
+langchain
+langchain-community
+langchain-core
+langchain-groq
+langgraph
+faiss-cpu
+sentence-transformers
+pypdf
+python-docx
+pillow
+tavily-python
