@@ -1,28 +1,19 @@
-# dashboard/home.py
+﻿# dashboard/home.py
 import streamlit as st
 
 def home_page():
     # ---------------------------------------------------------
-    # 1. LANGUAGE & THEME CONTROLS (TOP HEADER)
     # ---------------------------------------------------------
-    if "app_language" not in st.session_state:
-        st.session_state.app_language = "English"
 
     is_dark = st.session_state.get("ui_theme", "Light") == "Dark"
 
-    # Top Row: Title on Left, Language Switcher on Top-Right
     col_title, col_lang = st.columns([3.8, 1.4])
     
     with col_lang:
         lang_choice = st.segmented_control(
-            "Language / భాష",
-            ["🌐 English", "🇮🇳 తెలుగు"],
-            default="🇮🇳 తెలుగు" if st.session_state.app_language == "Telugu" else "🌐 English",
             label_visibility="collapsed"
         )
-        st.session_state.app_language = "Telugu" if "తెలుగు" in (lang_choice or "") else "English"
 
-    is_telugu = st.session_state.app_language == "Telugu"
 
     # Multilingual Content Dictionary
     content = {
