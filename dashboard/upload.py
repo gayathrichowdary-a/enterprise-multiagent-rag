@@ -216,9 +216,6 @@ def upload_page():
                         st.warning(f"⚠️ No readable text extracted from {safe_file_name}. (Note: Image files require OCR text).")
                         continue
 
-                                        if not chunks:
-                        st.warning(f"⚠️ `{safe_file_name}` contains no readable text or is an image. Skipped.")
-                        continue
 
                     vector_db = create_vector_db(chunks, embedding)
 
