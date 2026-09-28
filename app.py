@@ -1,4 +1,4 @@
-import streamlit as st
+﻿import streamlit as st
 st.set_page_config(page_title="Adaptive Multi-Agent RAG", page_icon="🤖", layout="wide")
 from auth.database import create_database
 from auth.signup import signup_page

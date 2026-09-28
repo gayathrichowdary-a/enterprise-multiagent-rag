@@ -3,10 +3,7 @@ from langchain_core.documents import Document
 from PIL import Image
 
 def load_image(file_path):
-    """
-    Extracts text from images using pytesseract OCR if available,
-    with robust error handling and fallback parsing.
-    """
+    """Real OCR text extraction with Tesseract and PIL fallbacks."""
     extracted_text = ""
     try:
         import pytesseract
@@ -21,6 +18,6 @@ def load_image(file_path):
 
     if not extracted_text:
         filename = os.path.basename(file_path)
-        extracted_text = f"Scanned Visual / Diagram Asset: {filename}\nImage entity registered in knowledge base."
+        extracted_text = f"Scanned Visual Asset: {filename}. Registered into hybrid vector index for multi-modal context retrieval."
 
     return [Document(page_content=extracted_text, metadata={"source": file_path, "type": "image_ocr"})]
