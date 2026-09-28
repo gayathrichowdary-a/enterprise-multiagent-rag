@@ -113,6 +113,44 @@ def inject_global_theme(is_dark=False):
 
 
 def dashboard():
+    st.markdown('''    <style>
+        /* Force crisp black text across all cards, paragraphs, and markdown in Light Mode */
+        html, body, [data-testid="stAppViewContainer"] {
+            color: #0f172a !important;
+        }
+        p, span, label, div {
+            color: #0f172a !important;
+        }
+        h1, h2, h3, h4, h5, h6 {
+            color: #000000 !important;
+            font-weight: 700 !important;
+        }
+        /* Specific card paragraph text */
+        [data-testid="stVerticalBlock"] p {
+            color: #1e293b !important;
+            font-weight: 500 !important;
+            font-size: 15px !important;
+            line-height: 1.6 !important;
+        }
+        /* Sidebar items high-contrast text */
+        [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label {
+            color: #0f172a !important;
+            font-weight: 600 !important;
+        }
+        /* Metric values and labels */
+        [data-testid="stMetricValue"] {
+            color: #000000 !important;
+            font-weight: 800 !important;
+        }
+        [data-testid="stMetricLabel"] {
+            color: #1e293b !important;
+            font-weight: 700 !important;
+        }
+        /* Keep buttons clear */
+        button p {
+            color: inherit !important;
+        }
+    </style>''', unsafe_allow_html=True)
     """Main dashboard layout and navigation sidebar."""
     user = st.session_state.get("user", {}); user = {"name": str(user), "full_name": str(user)} if isinstance(user, str) else user
     user_name = user.get("full_name") or user.get("name", "Gayathri")
@@ -170,3 +208,4 @@ def dashboard():
     inject_global_theme(is_dark_mode)
 
     return page
+

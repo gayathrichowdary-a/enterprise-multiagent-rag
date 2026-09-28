@@ -53,7 +53,7 @@ def home_page():
         bg_card = "#ffffff"
         border_card = "#e2e8f0"
         text_primary = "#0f172a"
-        text_secondary = "#64748b"
+        text_secondary = "#1e293b"
         hero_bg = "linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%)"
         accent_blue = "#2563eb"
         graph_bg = "#ffffff"
@@ -201,14 +201,14 @@ def home_page():
         bgcolor="{graph_bg}";
         
         node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=10, penwidth=1.5];
-        edge [fontname="Helvetica", fontsize=9, color="#64748b", fontcolor="#94a3b8"];
+        edge [fontname="Helvetica", fontsize=9, color="#1e293b", fontcolor="#94a3b8"];
 
         q [label="{q_lbl}", fillcolor="#312e81", fontcolor="#e0e7ff", color="#6366f1"];
         router [label="{r_lbl}", fillcolor="#78350f", fontcolor="#fef3c7", color="#f59e0b"];
         
-        vec [label="{v_lbl}", fillcolor="{node_fill}", fontcolor="{node_font}", color="#475569"];
-        graph [label="{g_lbl}", fillcolor="{node_fill}", fontcolor="{node_font}", color="#475569"];
-        web [label="{w_lbl}", fillcolor="{node_fill}", fontcolor="{node_font}", color="#475569"];
+        vec [label="{v_lbl}", fillcolor="{node_fill}", fontcolor="{node_font}", color="#0f172a"];
+        graph [label="{g_lbl}", fillcolor="{node_fill}", fontcolor="{node_font}", color="#0f172a"];
+        web [label="{w_lbl}", fillcolor="{node_fill}", fontcolor="{node_font}", color="#0f172a"];
         
         hybrid [label="{h_lbl}", fillcolor="#1e3a8a", fontcolor="#dbeafe", color="#3b82f6"];
         mem [label="{m_lbl}", fillcolor="#134e4a", fontcolor="#ccfbf1", color="#14b8a6"];
@@ -275,4 +275,5 @@ def home_page():
                 </p>
             </div>
         """, unsafe_allow_html=True)
+
 
