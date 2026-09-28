@@ -20,6 +20,15 @@ def compute_rrf_relevance(dense_rankings, sparse_rankings, k=60, w_dense=0.7, w_
     return rrf_scores
 
 
+def compute_combined_score(rrf_score, reliability_score=85.0, alpha=0.70, beta=0.30):
+    # Normalize RRF score to 0-100 scale for parity with reliability
+    normalized_rrf_score = min(100.0, rrf_score * 3000.0)
+    
+    # Combined Score Formula
+    final_score = (alpha * normalized_rrf_score) + (beta * reliability_score)
+    return round(final_score, 2)
+
+
 def retrieve_docs(vector_db, query, k=3):
     if vector_db is None:
         return []
@@ -27,7 +36,7 @@ def retrieve_docs(vector_db, query, k=3):
     return docs
 
 
-def retrieve_hybrid_rrf_docs(vector_db, bm25_index, all_docs, query, k=3):
+def retrieve_hybrid_rrf_docs(vector_db, bm25_index, all_docs, query, k=3, reliability_scores=None):
     if vector_db is None:
         return []
         
@@ -43,7 +52,13 @@ def retrieve_hybrid_rrf_docs(vector_db, bm25_index, all_docs, query, k=3):
         sparse_ids = dense_ids
         
     rrf_scores = compute_rrf_relevance(dense_ids, sparse_ids, k=60, w_dense=0.7, w_sparse=0.3)
-    sorted_content = sorted(rrf_scores.keys(), key=lambda x: rrf_scores[x], reverse=True)[:k]
+    
+    combined_scores = {}
+    for content, r_score in rrf_scores.items():
+        doc_rel = reliability_scores.get(content, 85.0) if reliability_scores else 85.0
+        combined_scores[content] = compute_combined_score(r_score, doc_rel, alpha=0.70, beta=0.30)
+
+    sorted_content = sorted(combined_scores.keys(), key=lambda x: combined_scores[x], reverse=True)[:k]
     
     fused_docs = []
     for doc in dense_docs:
