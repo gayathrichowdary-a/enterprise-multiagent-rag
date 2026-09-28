@@ -1,53 +1,96 @@
 ﻿def render_chat_controls():
-    """Renders Tier 1, 2, 3 filters, active document selection, and resource removal."""
-    sources = st.session_state.get("knowledge_sources", {})
-    all_source_names = list(sources.keys())
+    """Renders single/all file selector, Tier 1/2/3 authority filters, and Chat export."""
+    import os
     
-    with st.expander("⚙️ Knowledge Base Controls, Authority Tiers & Resource Removal", expanded=True):
-        col1, col2, col3 = st.columns([1.5, 1.5, 1])
+    # 1. Gather all files from session state and saved vector stores on disk
+    known_files = set()
+    if "knowledge_sources" in st.session_state:
+        known_files.update(st.session_state.knowledge_sources.keys())
+    if "uploaded_documents" in st.session_state:
+        known_files.update(st.session_state.uploaded_documents)
+    if "vector_stores" in st.session_state:
+        known_files.update(st.session_state.vector_stores.keys())
         
+    # Also check saved directories if present
+    for scan_dir in ["vectorstore", "data/uploads", "data"]:
+        if os.path.exists(scan_dir):
+            for item in os.listdir(scan_dir):
+                if item.endswith((".txt", ".pdf", ".docx", ".csv")) or os.path.isdir(os.path.join(scan_dir, item)):
+                    if not item.startswith("."):
+                        known_files.add(item)
+
+    file_list = sorted(list(known_files))
+
+    with st.expander("⚙️ Knowledge Base Controls & File Selection", expanded=True):
+        col1, col2, col3 = st.columns([1.3, 1.7, 1.2])
+
+        # Column 1: Authority Tier Filter
         with col1:
-            st.markdown("**🛡️ Filter by Authority Tier:**")
-            tier_filter = st.selectbox(
-                "Authority Tier",
-                ["All Tiers (1, 2 & 3)", "Tier 1: Authoritative Policies & Runbooks", "Tier 2: Technical Specifications & PRDs", "Tier 3: Informal / Working Notes"],
+            st.markdown("**🛡️ Authority Tier:**")
+            tier = st.selectbox(
+                "Tier Filter",
+                ["All Tiers (1, 2 & 3)", "Tier 1: Authoritative Policies", "Tier 2: Technical PRDs", "Tier 3: Working Notes"],
                 key="active_tier_filter",
                 label_visibility="collapsed"
             )
-            st.session_state["selected_tier_filter"] = tier_filter
+            st.session_state["selected_tier_filter"] = tier
 
+        # Column 2: Single File or All Files Selector
         with col2:
-            st.markdown("**📚 Active Document Filter:**")
-            if all_source_names:
-                selected_docs = st.multiselect(
-                    "Select Documents to Query",
-                    options=all_source_names,
-                    default=all_source_names,
-                    key="active_chat_sources",
+            st.markdown("**📚 Target File to Query:**")
+            if file_list:
+                options = ["🔍 All Uploaded Files"] + file_list
+                chosen_target = st.selectbox(
+                    "Select Document to Query",
+                    options=options,
+                    key="chat_target_file",
                     label_visibility="collapsed"
                 )
+                if chosen_target == "🔍 All Uploaded Files":
+                    st.session_state["active_chat_sources"] = file_list
+                    st.caption(f"Querying all {len(file_list)} documents.")
+                else:
+                    st.session_state["active_chat_sources"] = [chosen_target]
+                    st.caption(f"Focused exclusively on: **{chosen_target}**")
             else:
-                st.info("No external documents uploaded. Querying standard knowledge mesh.")
-                selected_docs = []
+                st.info("No documents uploaded yet. Go to **Upload Documents** to add files.")
+                st.session_state["active_chat_sources"] = []
 
+        # Column 3: Remove Resource + Download Chat
         with col3:
-            st.markdown("**🗑️ Remove Resources:**")
-            if all_source_names:
-                doc_to_remove = st.selectbox("Choose Resource to Remove", all_source_names, key="doc_to_delete", label_visibility="collapsed")
-                if st.button("❌ Remove Resource", use_container_width=True):
-                    # Remove from knowledge sources
-                    if doc_to_remove in st.session_state.knowledge_sources:
-                        del st.session_state.knowledge_sources[doc_to_remove]
-                    # Remove from vector stores
-                    if "vector_stores" in st.session_state and doc_to_remove in st.session_state.vector_stores:
-                        del st.session_state.vector_stores[doc_to_remove]
-                    # Remove from uploaded documents list
-                    if "uploaded_documents" in st.session_state and doc_to_remove in st.session_state.uploaded_documents:
-                        st.session_state.uploaded_documents.remove(doc_to_remove)
-                    st.success(f"Removed '{doc_to_remove}' from active knowledge base!")
-                    st.rerun()
-            else:
-                st.caption("No resources to remove.")
+            st.markdown("**⚙️ Actions:**")
+            action_col1, action_col2 = st.columns(2)
+            
+            # Download Chat History Button
+            chat_messages = st.session_state.get("messages", [])
+            chat_text = ""
+            for m in chat_messages:
+                role = "User" if m.get("role") == "user" else "Assistant"
+                content = m.get("content", "")
+                chat_text += f"[{role}]:\n{content}\n\n" + ("-" * 40) + "\n\n"
+            
+            st.download_button(
+                label="📥 Download Chat",
+                data=chat_text if chat_text else "No messages in chat session yet.",
+                file_name="enterprise_chat_history.txt",
+                mime="text/plain",
+                use_container_width=True,
+                disabled=(len(chat_messages) == 0)
+            )
+
+            # Delete / Remove Resource
+            if file_list:
+                with st.popover("🗑️ Remove File"):
+                    del_file = st.selectbox("Select file to delete:", file_list, key="rm_choice")
+                    if st.button("Confirm Delete", type="primary", use_container_width=True):
+                        for k in ["knowledge_sources", "vector_stores"]:
+                            if k in st.session_state and del_file in st.session_state[k]:
+                                del st.session_state[k][del_file]
+                        if "uploaded_documents" in st.session_state and del_file in st.session_state.uploaded_documents:
+                            st.session_state.uploaded_documents.remove(del_file)
+                        st.success(f"Removed '{del_file}'!")
+                        st.rerun()
+
 
 # dashboard/chat.py
 import streamlit as st
@@ -198,3 +241,4 @@ def chat_page():
                     fallback_text = f"Agent execution note: {str(e)}. Please ensure your API key and document stores are loaded."
                     st.error(fallback_text)
                     st.session_state.messages.append(AIMessage(content=fallback_text))
+
