@@ -21,7 +21,11 @@ def get_available_files():
         files.update(st.session_state.vector_stores.keys())
 
     # Scan local directories on disk as fallback
-    for folder in ["vectorstore", "data/uploads", "data"]:
+        # Scan local directories on disk as fallback
+    search_dirs = ["uploads", "vector_store", "vectorstore", "data/uploads", "data"]
+    user_id = st.session_state.get("user", {}).get("id", 1)
+    search_dirs += [os.path.join("uploads", str(user_id)), os.path.join("vector_store", str(user_id))]
+    for folder in search_dirs:
         if os.path.exists(folder):
             for item in os.listdir(folder):
                 if item.endswith((".txt", ".pdf", ".docx", ".csv", ".json")):
@@ -149,5 +153,6 @@ def chat_page():
                     err_msg = f"Agent execution note: {str(e)}"
                     st.error(err_msg)
                     st.session_state.messages.append(AIMessage(content=err_msg))
+
 
 
