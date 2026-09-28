@@ -1,4 +1,4 @@
-import os
+﻿import os
 import streamlit as st
 
 def run_workflow(query, chat_history=None):
@@ -41,7 +41,7 @@ def run_workflow(query, chat_history=None):
 
     # 3. Formulate Agentic State Response
     return {
-        "response": answer,
+        "response": answer, "answer": answer,
         "sources": list(stores.keys()),
         "ares_scores": {
             "context_relevance": 0.94,
@@ -49,3 +49,4 @@ def run_workflow(query, chat_history=None):
             "answer_relevance": 0.95
         }
     }
+

@@ -131,7 +131,7 @@ def chat_page():
             with st.spinner("🤖 Routing query through Multi-Agent pipeline..."):
                 try:
                     result = run_workflow(user_prompt)
-                    ans_text = result.get("answer", "No answer found.")
+                    ans_text = result.get("response") or result.get("answer") or "No answer found."
 
                     active_sources = st.session_state.get("active_chat_sources", all_files)
                     cited = active_sources[0] if active_sources else "Enterprise Document Base"
@@ -149,4 +149,5 @@ def chat_page():
                     err_msg = f"Agent execution note: {str(e)}"
                     st.error(err_msg)
                     st.session_state.messages.append(AIMessage(content=err_msg))
+
 
