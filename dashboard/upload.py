@@ -185,30 +185,33 @@ def upload_page():
                     documents = load_document(file_path)
                     chunks = chunk_text(documents)
 
+                    try:
+                        from langchain_core.documents import Document
+                    except ImportError:
+                        from langchain.schema import Document
+
                     valid_chunks = []
                     for chunk in chunks:
-                        if isinstance(chunk, str):
-                            try:
-                                from langchain_core.documents import Document
-                            except ImportError:
-                                from langchain.schema import Document
+                        # Extract text safely from any type (Document, string, tuple, or dict)
+                        if hasattr(chunk, "page_content"):
+                            text = str(chunk.page_content)
+                        elif isinstance(chunk, dict) and "page_content" in chunk:
+                            text = str(chunk["page_content"])
+                        elif isinstance(chunk, (list, tuple)) and len(chunk) > 0:
+                            text = str(chunk[0])
+                        else:
+                            text = str(chunk)
+
+                        if text and text.strip():
                             valid_chunks.append(Document(
-                                page_content=chunk,
+                                page_content=text,
                                 metadata={
                                     "source_name": safe_file_name,
                                     "department": department,
                                     "authority_tier": authority_tier
                                 }
                             ))
-                        else:
-                            if not hasattr(chunk, "metadata") or chunk.metadata is None:
-                                chunk.metadata = {}
-                            chunk.metadata["source_name"] = safe_file_name
-                            chunk.metadata["department"] = department
-                            chunk.metadata["authority_tier"] = authority_tier
-                            valid_chunks.append(chunk)
                     chunks = valid_chunks
-
                     if not chunks:
                         st.warning(f"⚠️ No readable text extracted from {safe_file_name}. (Note: Image files require OCR text).")
                         continue
