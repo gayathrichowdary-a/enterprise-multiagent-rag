@@ -52,13 +52,13 @@ def home_page():
     else:
         bg_card = "#ffffff"
         border_card = "#e2e8f0"
-        text_primary = "#0f172a"
-        text_secondary = "#1e293b"
+        text_primary = "#000000"
+        text_secondary = "#000000"
         hero_bg = "linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%)"
         accent_blue = "#2563eb"
         graph_bg = "#ffffff"
         node_fill = "#ffffff"
-        node_font = "#1e293b"
+        node_font = "#000000"
 
     st.markdown(f"""
         <style>
@@ -275,5 +275,6 @@ def home_page():
                 </p>
             </div>
         """, unsafe_allow_html=True)
+
 
 
