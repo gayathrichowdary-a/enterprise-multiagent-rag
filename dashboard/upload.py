@@ -185,10 +185,33 @@ def upload_page():
                     documents = load_document(file_path)
                     chunks = chunk_text(documents)
 
+                    valid_chunks = []
                     for chunk in chunks:
-                        chunk.metadata["source_name"] = safe_file_name
-                        chunk.metadata["department"] = department
-                        chunk.metadata["authority_tier"] = authority_tier
+                        if isinstance(chunk, str):
+                            try:
+                                from langchain_core.documents import Document
+                            except ImportError:
+                                from langchain.schema import Document
+                            valid_chunks.append(Document(
+                                page_content=chunk,
+                                metadata={
+                                    "source_name": safe_file_name,
+                                    "department": department,
+                                    "authority_tier": authority_tier
+                                }
+                            ))
+                        else:
+                            if not hasattr(chunk, "metadata") or chunk.metadata is None:
+                                chunk.metadata = {}
+                            chunk.metadata["source_name"] = safe_file_name
+                            chunk.metadata["department"] = department
+                            chunk.metadata["authority_tier"] = authority_tier
+                            valid_chunks.append(chunk)
+                    chunks = valid_chunks
+
+                    if not chunks:
+                        st.warning(f"⚠️ No readable text extracted from {safe_file_name}. (Note: Image files require OCR text).")
+                        continue
 
                     vector_db = create_vector_db(chunks, embedding)
 
