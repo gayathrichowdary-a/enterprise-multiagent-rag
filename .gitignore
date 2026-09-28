@@ -1,0 +1,10 @@
+﻿.env
+.env.local
+__pycache__/
+*.pyc
+*.pyo
+vectorstore/
+vector_store/
+users.db
+uploads/
+.streamlit/secrets.toml

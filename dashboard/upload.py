@@ -12,7 +12,7 @@ from rag.vector_store import create_vector_db
 
 from langchain_community.vectorstores import FAISS
 
-ALLOWED_FILE_TYPES = ["pdf", "docx", "txt", "png", "jpg", "jpeg"]
+ALLOWED_FILE_TYPES = ["pdf", "docx", "txt", "csv", "png", "jpg", "jpeg"]
 MAX_FILE_SIZE_MB = 10
 MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
 HASH_FILE_NAME = "source_hash.txt"
@@ -250,4 +250,5 @@ def upload_page():
         st.subheader("📚 Active Enterprise Knowledge Sources")
         for name, data in st.session_state.knowledge_sources.items():
             st.write(f"📄 **{name}** | Dept: `{data.get('department', 'General')}` | Authority: `{data.get('authority_tier', 'Tier 2')}` | Reliability: `{data.get('reliability_score', 80.0)}%`")
+
 
