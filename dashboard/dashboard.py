@@ -138,13 +138,28 @@ def dashboard():
             font-weight: 600 !important;
         }
         /* Metric values and labels */
+        div[data-testid="stMetric"] {
+            padding: 16px 20px !important;
+            border-radius: 12px !important;
+            box-sizing: border-box !important;
+            min-height: 105px !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: center !important;
+        }
         [data-testid="stMetricValue"] {
             color: #000000 !important;
             font-weight: 800 !important;
+            font-size: 1.85rem !important;
+            line-height: 1.3 !important;
+            padding-bottom: 6px !important;
+            overflow: visible !important;
         }
         [data-testid="stMetricLabel"] {
             color: #1e293b !important;
             font-weight: 700 !important;
+            font-size: 0.95rem !important;
+            margin-bottom: 6px !important;
         }
         /* Keep buttons clear */
         button p {
@@ -208,6 +223,7 @@ def dashboard():
     inject_global_theme(is_dark_mode)
 
     return page
+
 
 
 

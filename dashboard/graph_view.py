@@ -1,7 +1,7 @@
-import streamlit as st
+﻿import streamlit as st
 
 def knowledge_graph_page():
-    st.title("?? Enterprise Knowledge Graph")
+    st.title("🕸️ Enterprise Knowledge Graph")
     st.markdown("Visualize relationships, concepts, and entity linkages extracted across your enterprise documents.")
     
     col1, col2, col3 = st.columns(3)
@@ -23,3 +23,4 @@ def knowledge_graph_page():
         {"Subject": "Enterprise Security", "Relation": "enforces", "Object": "Role-Based Access Control"}
     ]
     st.table(demo_triplets)
+
