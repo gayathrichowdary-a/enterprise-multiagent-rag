@@ -55,8 +55,8 @@ def chat_page():
         selected_files = st.multiselect(
             "📁 Select Files to Query:",
             options=all_files,
-            default=all_files,
-            help="Choose 1, 2, or all files to query."
+            default=[],
+            placeholder="Click to choose files from dropdown..."
         )
         st.session_state["active_chat_sources"] = selected_files
     else:
@@ -149,3 +149,4 @@ def chat_page():
                     err_msg = f"Agent execution note: {str(e)}"
                     st.error(err_msg)
                     st.session_state.messages.append(AIMessage(content=err_msg))
+
