@@ -1,4 +1,5 @@
-import os
+﻿import os
+from loaders.image_loader import load_image
 
 class Document:
     def __init__(self, page_content, metadata=None):
@@ -9,6 +10,17 @@ def load_document(file_path):
     ext = os.path.splitext(file_path)[1].lower()
     text = ""
     
+    # 1. OCR for Image files
+    if ext in [".png", ".jpg", ".jpeg", ".bmp", ".webp"]:
+        try:
+            docs = load_image(file_path)
+            if docs and docs[0].page_content:
+                return docs
+        except Exception:
+            pass
+        return [Document(page_content=f"Scanned Visual / Diagram Asset: {os.path.basename(file_path)}", metadata={"source": file_path, "type": "image"})]
+
+    # 2. Text & Document files
     try:
         if ext == ".txt":
             with open(file_path, "r", encoding="utf-8", errors="ignore") as f:

@@ -1,4 +1,5 @@
-﻿# dashboard/chat.py
+﻿from database.source_db import update_source_feedback
+# dashboard/chat.py
 import os
 import datetime
 import streamlit as st
@@ -91,11 +92,23 @@ def chat_page():
 
                 st.markdown(f"""
                     <div style="background-color: {badge_bg}; border: 1px solid {badge_border}; padding: 6px 12px; border-radius: 8px; margin-top: 8px; display: inline-flex; gap: 12px; font-size: 0.8rem; align-items: center;">
-                        <span style="color: #22c55e; font-weight: 700;">🛡️ ARES Verified</span>
+                        <span style="color: #22c55e; font-weight: 700;">🛡️ ARES-Inspired Evaluation</span>
                         <span style="color: {text_muted};">|</span>
                         <span>Faithfulness: <b>{faithfulness:.1f}%</b></span>
                         <span style="color: {text_muted};">|</span>
                         <span>Source: <b>{cited_source}</b></span>
+                    # Interactive Dynamic Source Reliability Feedback
+                    col_fb1, col_fb2, _ = st.columns([1, 1, 6])
+                    with col_fb1:
+                        if st.button("👍 Helpful", key=f"up_{i}"):
+                            from database.source_db import update_source_feedback
+                            update_source_feedback(cited_source, is_positive=True)
+                            st.toast(f"✅ Reliability updated for {cited_source} (+2.5)")
+                    with col_fb2:
+                        if st.button("👎 Inaccurate", key=f"down_{i}"):
+                            from database.source_db import update_source_feedback
+                            update_source_feedback(cited_source, is_positive=False)
+                            st.toast(f"⚠️ Reliability reduced for {cited_source} (-6.0)")
                     </div>
                 """, unsafe_allow_html=True)
 
@@ -153,6 +166,8 @@ def chat_page():
                     err_msg = f"Agent execution note: {str(e)}"
                     st.error(err_msg)
                     st.session_state.messages.append(AIMessage(content=err_msg))
+
+
 
 
 

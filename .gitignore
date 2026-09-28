@@ -1,8 +1,11 @@
 ﻿.env
-.env.local
-*.key
+.env.*
+users.db
+database/users.db
 __pycache__/
 *.pyc
 uploads/
-users.db
 vector_store/
+vectorstore/
+*.db
+.streamlit/secrets.toml
