@@ -21,8 +21,8 @@ def inject_global_theme(is_dark=False):
         bg_sidebar = "#ffffff"
         bg_card = "#ffffff"
         border_card = "#e2e8f0"
-        text_primary = "#0f172a"
-        text_secondary = "#64748b"
+        text_primary = "#000000"
+        text_secondary = "#0f172a"
         accent_blue = "#2563eb"
         input_bg = "#ffffff"
         chat_msg_bg = "#ffffff"
@@ -208,4 +208,5 @@ def dashboard():
     inject_global_theme(is_dark_mode)
 
     return page
+
 
