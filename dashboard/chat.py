@@ -1,3 +1,54 @@
+﻿def render_chat_controls():
+    """Renders Tier 1, 2, 3 filters, active document selection, and resource removal."""
+    sources = st.session_state.get("knowledge_sources", {})
+    all_source_names = list(sources.keys())
+    
+    with st.expander("⚙️ Knowledge Base Controls, Authority Tiers & Resource Removal", expanded=True):
+        col1, col2, col3 = st.columns([1.5, 1.5, 1])
+        
+        with col1:
+            st.markdown("**🛡️ Filter by Authority Tier:**")
+            tier_filter = st.selectbox(
+                "Authority Tier",
+                ["All Tiers (1, 2 & 3)", "Tier 1: Authoritative Policies & Runbooks", "Tier 2: Technical Specifications & PRDs", "Tier 3: Informal / Working Notes"],
+                key="active_tier_filter",
+                label_visibility="collapsed"
+            )
+            st.session_state["selected_tier_filter"] = tier_filter
+
+        with col2:
+            st.markdown("**📚 Active Document Filter:**")
+            if all_source_names:
+                selected_docs = st.multiselect(
+                    "Select Documents to Query",
+                    options=all_source_names,
+                    default=all_source_names,
+                    key="active_chat_sources",
+                    label_visibility="collapsed"
+                )
+            else:
+                st.info("No external documents uploaded. Querying standard knowledge mesh.")
+                selected_docs = []
+
+        with col3:
+            st.markdown("**🗑️ Remove Resources:**")
+            if all_source_names:
+                doc_to_remove = st.selectbox("Choose Resource to Remove", all_source_names, key="doc_to_delete", label_visibility="collapsed")
+                if st.button("❌ Remove Resource", use_container_width=True):
+                    # Remove from knowledge sources
+                    if doc_to_remove in st.session_state.knowledge_sources:
+                        del st.session_state.knowledge_sources[doc_to_remove]
+                    # Remove from vector stores
+                    if "vector_stores" in st.session_state and doc_to_remove in st.session_state.vector_stores:
+                        del st.session_state.vector_stores[doc_to_remove]
+                    # Remove from uploaded documents list
+                    if "uploaded_documents" in st.session_state and doc_to_remove in st.session_state.uploaded_documents:
+                        st.session_state.uploaded_documents.remove(doc_to_remove)
+                    st.success(f"Removed '{doc_to_remove}' from active knowledge base!")
+                    st.rerun()
+            else:
+                st.caption("No resources to remove.")
+
 # dashboard/chat.py
 import streamlit as st
 import datetime
@@ -52,6 +103,7 @@ def chat_page():
     text_muted = "#94a3b8" if is_dark else "#64748b"
 
     st.title("💬 Adaptive Multi-Agent Enterprise Chat")
+    render_chat_controls()
     st.caption("Grounded querying across Tier-weighted vector stores, knowledge subgraphs, and ARES quality verification.")
 
     # Initialize session messages if empty

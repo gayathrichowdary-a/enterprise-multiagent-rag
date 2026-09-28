@@ -199,7 +199,7 @@ def dashboard():
 
         if page == "📤 Upload Documents":
             document_sidebar()
-        elif page == "💬 Chat":
+        elif "Chat" in str(page):
             chat_sidebar()
 
         st.caption("🛡️ Adaptive Engine v2.4 Active")
@@ -208,5 +208,6 @@ def dashboard():
     inject_global_theme(is_dark_mode)
 
     return page
+
 
 
