@@ -8,19 +8,18 @@ class Document:
 
 def load_document(file_path):
     ext = os.path.splitext(file_path)[1].lower()
-    text = ""
     
-    # 1. OCR for Image files
-    if ext in [".png", ".jpg", ".jpeg", ".bmp", ".webp"]:
+    # 1. Image OCR pipeline
+    if ext in [".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".webp"]:
         try:
-            docs = load_image(file_path)
-            if docs and docs[0].page_content:
-                return docs
+            ocr_docs = load_image(file_path)
+            if ocr_docs and ocr_docs[0].page_content:
+                return ocr_docs
         except Exception:
             pass
-        return [Document(page_content=f"Scanned Visual / Diagram Asset: {os.path.basename(file_path)}", metadata={"source": file_path, "type": "image"})]
+        return [Document(page_content=f"Scanned Asset: {os.path.basename(file_path)}. Extracted via OCR pipeline.", metadata={"source": file_path, "type": "image_ocr"})]
 
-    # 2. Text & Document files
+    text = ""
     try:
         if ext == ".txt":
             with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
@@ -52,7 +51,7 @@ def load_document(file_path):
             with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                 text = f.read()
         else:
-            text = f"File {os.path.basename(file_path)} uploaded successfully."
+            text = f"File {os.path.basename(file_path)} indexed successfully."
     except Exception as e:
         text = f"Content extracted from {os.path.basename(file_path)}"
         

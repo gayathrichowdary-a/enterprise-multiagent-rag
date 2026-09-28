@@ -89,6 +89,13 @@ def document_sidebar():
 # MAIN PAGE
 # ---------------------------------
 def upload_page():
+    # RBAC_RESTRICTION_ACTIVE: Only Admin role can ingest sources
+    current_user = st.session_state.get("user", {})
+    user_role = current_user.get("role", "Enterprise Admin") if isinstance(current_user, dict) else "Enterprise Admin"
+    if "admin" not in user_role.lower():
+        st.error("🚫 Access Denied: Your current role is 'Enterprise Analyst'. Source upload and index manipulation are restricted to 'Enterprise Admin'.")
+        st.info("You may view existing sources, test Chat, or run ARES Evaluations.")
+        return
     # RBAC Check: Only Admins can upload and index documents
     user = st.session_state.get("user", {})
     user_role = user.get("role", "Enterprise Admin" if "admin" in str(user).lower() else "Enterprise Analyst") if isinstance(user, dict) else "Enterprise Admin"
@@ -257,6 +264,7 @@ def upload_page():
         st.subheader("📚 Active Enterprise Knowledge Sources")
         for name, data in st.session_state.knowledge_sources.items():
             st.write(f"📄 **{name}** | Dept: `{data.get('department', 'General')}` | Authority: `{data.get('authority_tier', 'Tier 2')}` | Reliability: `{data.get('reliability_score', 80.0)}%`")
+
 
 
 

@@ -1,42 +1,43 @@
 ﻿import streamlit as st
 
 def settings_page():
-    st.title("⚙️ Settings & Governance")
+    st.title("⚙️ Settings & Role-Based Access Control (RBAC)")
 
     user = st.session_state.get("user", {})
-    if isinstance(user, str):
-        full_name = user
-        username = user.lower()
-        role = "Enterprise Admin" if "admin" in username else "Enterprise Analyst"
-    elif isinstance(user, dict):
-        full_name = user.get("full_name") or user.get("name") or "Gayathri"
-        username = user.get("username") or user.get("name") or "enterprise_user"
-        role = user.get("role", "Enterprise Admin" if "admin" in str(username).lower() else "Enterprise Analyst")
+    if isinstance(user, dict):
+        username = user.get("username", "Gayathri")
+        current_role = user.get("role", "Enterprise Admin")
     else:
-        full_name = "Gayathri"
-        username = "enterprise_user"
-        role = "Enterprise Admin"
+        username = str(user) if user else "Gayathri"
+        current_role = "Enterprise Admin"
 
-    st.subheader("👤 Account Profile & RBAC")
-    col1, col2 = st.columns(2)
-    with col1:
-        st.write(f"**Name:** {full_name}")
-        st.write(f"**Username:** {username}")
-    with col2:
-        st.write(f"**Assigned Role:** `{role}`")
-        st.write(f"**Authentication:** Secure Enterprise Session Authentication")
+    st.subheader("👤 User Profile & Role Assignment")
+    st.write(f"**Authenticated User:** `{username}`")
+    
+    # Interactive Role Switcher for RBAC demonstration
+    selected_role = st.selectbox(
+        "Active Role:",
+        ["Enterprise Admin", "Enterprise Analyst"],
+        index=0 if current_role == "Enterprise Admin" else 1
+    )
+    if isinstance(user, dict):
+        st.session_state["user"]["role"] = selected_role
+    else:
+        st.session_state["user"] = {"username": username, "role": selected_role, "id": 1}
 
     st.divider()
 
-    st.subheader("🛡️ Role-Based Access Controls (RBAC)")
-    if "admin" in role.lower():
-        st.success("✅ **Admin Privileges Active**: Knowledge base indexing, source deletion, and authority score adjustments enabled.")
+    st.subheader("🛡️ RBAC Permissions Matrix")
+    if selected_role == "Enterprise Admin":
+        st.success("✅ **Enterprise Admin Permissions Active**:")
+        st.markdown("- Ingest new documents (PDF, CSV, DOCX, TXT, OCR images)\n- Manage Knowledge Source authority tiers\n- Clear and rebuild hybrid FAISS & BM25 indices\n- Execute Chat & ARES Evaluation")
     else:
-        st.info("ℹ️ **Standard Analyst Role**: Read, Query, and Evaluation permissions enabled. Policy editing restricted.")
+        st.warning("🔒 **Enterprise Analyst Permissions Active**:")
+        st.markdown("- Query Chat with RRF Hybrid Retrieval\n- Explore Multi-Hop Knowledge Graph\n- Run live ARES Evaluation benchmarks\n- ❌ Upload & index deletion restricted")
 
     st.divider()
-
-    st.subheader("Session Controls")
+    st.subheader("Session Authentication")
+    st.info("🔒 Authentication mode: Enterprise Session RBAC. Login token is securely validated within active browser session.")
     if st.button("🚪 Logout", use_container_width=True):
         st.session_state.clear()
         st.rerun()

@@ -1,5 +1,6 @@
 ﻿.env
 .env.*
+*.db
 users.db
 database/users.db
 __pycache__/
@@ -7,5 +8,4 @@ __pycache__/
 uploads/
 vector_store/
 vectorstore/
-*.db
 .streamlit/secrets.toml
