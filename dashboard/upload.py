@@ -216,14 +216,21 @@ def upload_page():
                         st.warning(f"⚠️ No readable text extracted from {safe_file_name}. (Note: Image files require OCR text).")
                         continue
 
+                                        if not chunks:
+                        st.warning(f"⚠️ `{safe_file_name}` contains no readable text or is an image. Skipped.")
+                        continue
+
                     vector_db = create_vector_db(chunks, embedding)
 
-                    os.makedirs(vector_path, exist_ok=True)
-                    vector_db.save_local(vector_path)
-                    with open(hash_file_path, "w") as hf:
-                        hf.write(new_hash)
-
-                    st.session_state.vector_stores[safe_file_name] = vector_db
+                    if vector_db is not None and hasattr(vector_db, "save_local"):
+                        os.makedirs(vector_path, exist_ok=True)
+                        vector_db.save_local(vector_path)
+                        with open(hash_file_path, "w") as hf:
+                            hf.write(new_hash)
+                        st.session_state.vector_stores[safe_file_name] = vector_db
+                        st.session_state.uploaded_documents.append(safe_file_name)
+                    else:
+                        st.warning(f"⚠️ Could not build vector embeddings for `{safe_file_name}`. Skipped.")
                     st.session_state.knowledge_sources[safe_file_name] = {
                         "type": os.path.splitext(safe_file_name)[1],
                         "vector_db": vector_db,
@@ -246,3 +253,4 @@ def upload_page():
         st.subheader("📚 Active Enterprise Knowledge Sources")
         for name, data in st.session_state.knowledge_sources.items():
             st.write(f"📄 **{name}** | Dept: `{data.get('department', 'General')}` | Authority: `{data.get('authority_tier', 'Tier 2')}` | Reliability: `{data.get('reliability_score', 80.0)}%`")
+
