@@ -8,6 +8,14 @@ from database.chat_history import save_chat_message, get_chat_history
 from database.memory import save_profile_memory, get_profile_memory
 from rag.embeddings import load_embedding
 
+def chat_sidebar():
+    """Sidebar controls for Chat page."""
+    st.sidebar.markdown("### 💬 Chat Management")
+    if st.sidebar.button("🗑️ Clear Active Chat", use_container_width=True):
+        st.session_state.messages = []
+        st.toast("Chat history cleared!")
+        st.rerun()
+
 def chat_page():
     is_dark = st.session_state.get("ui_theme", "Light") == "Dark"
     badge_bg = "#1e293b" if is_dark else "#f1f5f9"
