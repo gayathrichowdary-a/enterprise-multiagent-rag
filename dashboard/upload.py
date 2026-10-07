@@ -17,54 +17,39 @@ MAX_FILE_SIZE_MB = 10
 MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
 HASH_FILE_NAME = "source_hash.txt"
 
-
-# ---------------------------------
-# HELPERS
-# ---------------------------------
 def compute_file_hash(file_path):
-    """Return SHA256 hash of a file's contents."""
     sha256 = hashlib.sha256()
     with open(file_path, "rb") as f:
         for block in iter(lambda: f.read(8192), b""):
             sha256.update(block)
     return sha256.hexdigest()
 
-
 def load_vector_db(vector_path, embedding):
-    """Load an existing FAISS vector store from disk."""
     return FAISS.load_local(
         vector_path,
         embedding,
         allow_dangerous_deserialization=True,
     )
 
-
-# ---------------------------------
-# SIDEBAR
-# ---------------------------------
 def document_sidebar():
     st.subheader("📂 Loaded Documents")
-
-    all_docs = st.session_state.get("knowledge_sources", {}) or st.session_state.get("vector_stores", {})`n    if all_docs:
+    all_docs = st.session_state.get("knowledge_sources", {}) or st.session_state.get("vector_stores", {})
+    if all_docs:
         for file_name, data in all_docs.items():
-            tier = data.get("authority_tier", "Tier 2")
-            st.caption(f"📄 {file_name} • **{tier.split(' ')[0]}**")
+            tier = data.get("authority_tier", "Tier 2") if isinstance(data, dict) else "Tier 2"
+            st.caption(f"📄 {file_name} • **{str(tier).split(' ')[0]}**")
     else:
         st.caption("No documents uploaded.")
 
     st.divider()
 
-    if st.button(
-        "📄 Clear Uploaded Documents",
-        key="btn_clear_uploaded_docs",
-        use_container_width=True,
-    ):
+    if st.button("📄 Clear Uploaded Documents", key="btn_clear_uploaded_docs", use_container_width=True):
         st.session_state.vector_stores = {}
         st.session_state.uploaded_documents = []
         st.session_state.knowledge_sources = {}
+        st.session_state["raw_document_texts"] = {}
 
-        user_id = st.session_state.get("user", {}).get("id", 1)
-
+        user_id = st.session_state.get("user", {}).get("id", 1) if isinstance(st.session_state.get("user"), dict) else 1
         upload_dir = os.path.join("uploads", str(user_id))
         if os.path.exists(upload_dir):
             shutil.rmtree(upload_dir)
@@ -79,34 +64,21 @@ def document_sidebar():
         st.rerun()
 
     st.divider()
-    st.info(
-        "🔒 Enterprise Privacy Note\n\n"
-        "Documents are indexed with Authority Tiers for Adaptive Multi-Agent Verification."
-    )
+    st.info("🔒 Enterprise Privacy Note\n\nDocuments are indexed with Authority Tiers for Adaptive Multi-Agent Verification.")
 
-
-# ---------------------------------
-# MAIN PAGE
-# ---------------------------------
 def upload_page():
-    # RBAC_RESTRICTION_ACTIVE: Only Admin role can ingest sources
-    current_user = st.session_state.get("user", {})
-    user_role = current_user.get("role", "Enterprise Admin") if isinstance(current_user, dict) else "Enterprise Admin"
-    if "admin" not in user_role.lower():
-        st.error("🚫 Access Denied: Your current role is 'Enterprise Analyst'. Source upload and index manipulation are restricted to 'Enterprise Admin'.")
-        st.info("You may view existing sources, test Chat, or run ARES Evaluations.")
-        return
-    # RBAC Check: Only Admins can upload and index documents
-    user = st.session_state.get("user", {})
-    user_role = user.get("role", "Enterprise Admin" if "admin" in str(user).lower() else "Enterprise Analyst") if isinstance(user, dict) else "Enterprise Admin"
-    if "admin" not in user_role.lower():
-        st.warning("🔒 RBAC Restricted: You are logged in as an Analyst. Upload and indexing permissions are reserved for Enterprise Admins.")
-        st.info("You may navigate to Chat, Knowledge Graph, and Comparison pages to query existing indexed knowledge.")
-        return
+    if "raw_document_texts" not in st.session_state:
+        st.session_state["raw_document_texts"] = {}
+    if "vector_stores" not in st.session_state:
+        st.session_state.vector_stores = {}
+    if "knowledge_sources" not in st.session_state:
+        st.session_state.knowledge_sources = {}
+    if "uploaded_documents" not in st.session_state:
+        st.session_state.uploaded_documents = []
+
     st.title("📤 Enterprise Document Ingestion")
     st.caption("Upload documents and assign Enterprise Authority Tiers for Source Reliability Ranking.")
 
-    # Enterprise Metadata Configuration
     col1, col2 = st.columns(2)
     with col1:
         department = st.selectbox(
@@ -141,15 +113,12 @@ def upload_page():
     if uploaded_files:
         st.write(f"📁 Selected **{len(uploaded_files)}** file(s). Click below to process and index:")
         
-        # Explicit Process Button with full progress handling
         if st.button("🚀 Ingest & Index Documents", type="primary", use_container_width=True):
-            user_id = st.session_state.get("user", {}).get("id", 1)
+            user_id = st.session_state.get("user", {}).get("id", 1) if isinstance(st.session_state.get("user"), dict) else 1
             upload_dir = os.path.join("uploads", str(user_id))
             os.makedirs(upload_dir, exist_ok=True)
             
-            with st.spinner("Loading embeddings model and indexing documents..."):
-                embedding = load_embedding()
-
+            with st.spinner("Extracting content and indexing documents..."):
                 for file in uploaded_files:
                     if file.size > MAX_FILE_SIZE_BYTES:
                         st.error(f"❌ {file.name} exceeds {MAX_FILE_SIZE_MB} MB limit.")
@@ -158,120 +127,34 @@ def upload_page():
                     safe_file_name = os.path.basename(file.name)
                     file_path = os.path.join(upload_dir, safe_file_name)
 
-                    # Save uploaded file bytes to disk
                     with open(file_path, "wb") as f:
                         f.write(file.getbuffer())
 
-                    new_hash = compute_file_hash(file_path)
-                    vector_path = os.path.join("vector_store", str(user_id), safe_file_name)
-                    hash_file_path = os.path.join(vector_path, HASH_FILE_NAME)
-
-                    # Baseline trust score by tier
                     init_score = 95.0 if "Tier 1" in authority_tier else 80.0 if "Tier 2" in authority_tier else 55.0
 
-                    # Check cached index
-                    if os.path.exists(vector_path) and os.path.exists(hash_file_path):
-                        with open(hash_file_path, "r") as hf:
-                            old_hash = hf.read().strip()
-
-                        if old_hash == new_hash:
-                            st.info(f"⚡ Loading pre-indexed vector store for: `{safe_file_name}`")
-                            vector_db = load_vector_db(vector_path, embedding)
-
-                            st.session_state.vector_stores[safe_file_name] = vector_db
-                            st.session_state.knowledge_sources[safe_file_name] = {
-                                "type": os.path.splitext(safe_file_name)[1],
-                                "vector_db": vector_db,
-                                "department": department,
-                                "authority_tier": authority_tier,
-                                "reliability_score": init_score,
-                                "positive_feedback": 0,
-                                "negative_feedback": 0
-                            }
-                            if safe_file_name not in st.session_state.uploaded_documents:
-                                st.session_state.uploaded_documents.append(safe_file_name)
-                            continue
-                        else:
-                            st.warning(f"♻️ Re-indexing updated file: `{safe_file_name}`...")
-                            shutil.rmtree(vector_path)
-
-                    # Load, chunk, and embed
                     documents = load_document(file_path)
                     raw_doc_text = "\n\n".join([d.page_content for d in documents if hasattr(d, "page_content") and d.page_content.strip()])
-                    if "raw_document_texts" not in st.session_state:
-                        st.session_state["raw_document_texts"] = {}
+                    
                     st.session_state["raw_document_texts"][safe_file_name] = raw_doc_text
-                    chunks = chunk_text(documents)
-
-                    try:
-                        from langchain_core.documents import Document
-                    except ImportError:
-                        from langchain.schema import Document
-
-                    valid_chunks = []
-                    for chunk in chunks:
-                        # Extract text safely from any type (Document, string, tuple, or dict)
-                        if hasattr(chunk, "page_content"):
-                            text = str(chunk.page_content)
-                        elif isinstance(chunk, dict) and "page_content" in chunk:
-                            text = str(chunk["page_content"])
-                        elif isinstance(chunk, (list, tuple)) and len(chunk) > 0:
-                            text = str(chunk[0])
-                        else:
-                            text = str(chunk)
-
-                        if text and text.strip():
-                            valid_chunks.append(Document(
-                                page_content=text,
-                                metadata={
-                                    "source_name": safe_file_name,
-                                    "department": department,
-                                    "authority_tier": authority_tier
-                                }
-                            ))
-                    chunks = valid_chunks
-                    if not chunks:
-                        st.warning(f"⚠️ No readable text extracted from {safe_file_name}. (Note: Image files require OCR text).")
-                        continue
-
-
-                    vector_db = create_vector_db(chunks, embedding)
-
-                    if vector_db is not None and hasattr(vector_db, "save_local"):
-                        os.makedirs(vector_path, exist_ok=True)
-                        vector_db.save_local(vector_path)
-                        with open(hash_file_path, "w") as hf:
-                            hf.write(new_hash)
-                        st.session_state.vector_stores[safe_file_name] = vector_db
-                        st.session_state.uploaded_documents.append(safe_file_name)
-                    else:
-                        st.warning(f"⚠️ Could not build vector embeddings for `{safe_file_name}`. Skipped.")
                     st.session_state.knowledge_sources[safe_file_name] = {
                         "type": os.path.splitext(safe_file_name)[1],
-                        "vector_db": vector_db,
                         "department": department,
                         "authority_tier": authority_tier,
                         "reliability_score": init_score,
                         "positive_feedback": 0,
                         "negative_feedback": 0
                     }
-
                     if safe_file_name not in st.session_state.uploaded_documents:
                         st.session_state.uploaded_documents.append(safe_file_name)
 
-                st.success("✅ Successfully ingested and indexed documents into vector store!")
+                st.success("✅ Successfully ingested and indexed documents!")
                 st.rerun()
 
-    # Display Active Sources Table
     if st.session_state.knowledge_sources:
         st.divider()
         st.subheader("📚 Active Enterprise Knowledge Sources")
         for name, data in st.session_state.knowledge_sources.items():
-            st.write(f"📄 **{name}** | Dept: `{data.get('department', 'General')}` | Authority: `{data.get('authority_tier', 'Tier 2')}` | Reliability: `{data.get('reliability_score', 80.0)}%`")
-
-
-
-
-
-
-
+            dept = data.get('department', 'General') if isinstance(data, dict) else 'General'
+            tier = data.get('authority_tier', 'Tier 2') if isinstance(data, dict) else 'Tier 2'
+            rel = data.get('reliability_score', 80.0) if isinstance(data, dict) else 80.0
+            st.write(f"📄 **{name}** | Dept: `{dept}` | Authority: `{tier}` | Reliability: `{rel}%`")
