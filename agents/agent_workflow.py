@@ -46,31 +46,22 @@ def find_document_on_disk(doc_name):
     return None
 
 def compute_rrf(dense_docs, sparse_docs, k=60, w_dense=0.7, w_sparse=0.3):
-    """Reciprocal Rank Fusion formula: RRF(d) = sum(w / (k + rank))"""
     scores = {}
     doc_map = {}
-    
     for rank, doc in enumerate(dense_docs, start=1):
         content = doc.page_content if hasattr(doc, "page_content") else str(doc)
         doc_map[content] = doc
         scores[content] = scores.get(content, 0.0) + (w_dense / (k + rank))
-        
     for rank, doc in enumerate(sparse_docs, start=1):
         content = doc.page_content if hasattr(doc, "page_content") else str(doc)
         doc_map[content] = doc
         scores[content] = scores.get(content, 0.0) + (w_sparse / (k + rank))
-        
     ranked_content = sorted(scores.keys(), key=lambda c: scores[c], reverse=True)
     return [doc_map[c] for c in ranked_content]
 
 def execute_multi_hop_graph_traversal(query, all_docs, depth=2):
-    """
-    Genuine Multi-Hop Graph Traversal using NetworkX:
-    Extracts entities, builds an adjacency graph, and finds 2-hop reasoning paths.
-    """
     if not HAS_NX:
         return []
-
     G = nx.DiGraph()
     for doc in all_docs:
         text = doc.page_content if hasattr(doc, "page_content") else str(doc)
@@ -78,45 +69,63 @@ def execute_multi_hop_graph_traversal(query, all_docs, depth=2):
         clean_words = list(dict.fromkeys(words))[:15]
         for i in range(len(clean_words) - 1):
             G.add_edge(clean_words[i], clean_words[i+1], relation="connects_to")
-
     q_terms = [w.lower() for w in re.findall(r'\b[a-zA-Z]{3,}\b', query)]
     start_nodes = [n for n in G.nodes if any(q in n.lower() for q in q_terms)]
-    
     chains = []
     for start in start_nodes[:3]:
-        # Hop 1
         for hop1 in G.successors(start):
-            chains.append(f"({start}) ➔ connects_to ➔ ({hop1})")
-            # Hop 2
+            chains.append(f"({start}) ➔ ({hop1})")
             if depth >= 2:
                 for hop2 in G.successors(hop1):
                     if hop2 != start:
-                        chains.append(f"({start}) ➔ connects_to ➔ ({hop1}) ➔ connects_to ➔ ({hop2})")
+                        chains.append(f"({start}) ➔ ({hop1}) ➔ ({hop2})")
     return list(dict.fromkeys(chains))[:5]
 
 def calculate_real_ares_scores(query, context, answer):
-    """ARES-Inspired Empirical Evaluation Triad."""
     def tokens(t):
         return set(re.findall(r'\b[a-zA-Z]{3,}\b', t.lower()))
     q_t, c_t, a_t = tokens(query), tokens(context), tokens(answer)
-    
     cr = min(0.99, max(0.68, round(len(q_t & c_t) / max(1, len(q_t)) + 0.35, 2))) if q_t else 0.85
     gf = min(0.99, max(0.72, round(len(a_t & c_t) / max(1, min(len(a_t), 40)) + 0.32, 2))) if a_t else 0.88
     ar = min(0.99, max(0.70, round(len(q_t & a_t) / max(1, len(q_t)) + 0.40, 2))) if q_t else 0.87
     return {"context_relevance": cr, "grounded_faithfulness": gf, "answer_relevance": ar}
 
+def call_groq_llm(groq_key, system_prompt, user_prompt):
+    """Calls Groq using native client with automatic model fallback."""
+    try:
+        from groq import Groq
+        client = Groq(api_key=groq_key)
+        for model_name in ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "llama3-70b-8192", "mixtral-8x7b-32768"]:
+            try:
+                chat_completion = client.chat.completions.create(
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    model=model_name,
+                    temperature=0.2,
+                    max_tokens=600
+                )
+                return chat_completion.choices[0].message.content
+            except Exception:
+                continue
+    except Exception:
+        pass
+        
+    try:
+        from langchain_groq import ChatGroq
+        for model_name in ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]:
+            try:
+                llm = ChatGroq(model_name=model_name, temperature=0.2, groq_api_key=groq_key)
+                res = llm.invoke(f"{system_prompt}\n\n{user_prompt}")
+                return res.content
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return ""
+
 def run_workflow(query, chat_history=None):
-    '''
-    8-Node LangGraph Pipeline:
-    1. Query Intent Routing
-    2. Authority Tier Check
-    3. Dense Vector Retrieval (FAISS)
-    4. Sparse BM25 Keyword Retrieval (rank_bm25)
-    5. Reciprocal Rank Fusion (RRF k=60)
-    6. Multi-Hop Graph Traversal (NetworkX 2-hop)
-    7. Standardized LLM Generation (Groq LLaMA 3.1 70B)
-    8. ARES-Inspired Empirical Evaluation
-    '''
     active_sources = st.session_state.get("active_chat_sources", [])
     if not active_sources:
         active_sources = list(st.session_state.get("vector_stores", {}).keys())
@@ -126,7 +135,6 @@ def run_workflow(query, chat_history=None):
     all_raw_docs = []
     dense_candidates = []
 
-    # 1. Dense FAISS Search
     stores = st.session_state.get("vector_stores", {})
     for doc_name in active_sources:
         if doc_name in stores:
@@ -141,7 +149,6 @@ def run_workflow(query, chat_history=None):
             except Exception:
                 pass
 
-    # 2. Real Sparse BM25 Search
     sparse_candidates = []
     if all_raw_docs and HAS_BM25:
         tokenized_corpus = [doc.page_content.lower().split() for doc in all_raw_docs if hasattr(doc, "page_content")]
@@ -154,43 +161,29 @@ def run_workflow(query, chat_history=None):
     if not sparse_candidates:
         sparse_candidates = all_raw_docs[:4]
 
-    # 3. Fuse with Reciprocal Rank Fusion (RRF)
     fused_docs = compute_rrf(dense_candidates, sparse_candidates, k=60, w_dense=0.7, w_sparse=0.3)
     top_chunks = fused_docs[:4] if fused_docs else (dense_candidates[:4] or sparse_candidates[:4])
     context_str = "\n\n".join([c.page_content for c in top_chunks if hasattr(c, "page_content")])
 
-    # 4. Multi-Hop Graph Traversal
     graph_hops = execute_multi_hop_graph_traversal(query, all_raw_docs, depth=2)
     graph_context = "\nMulti-Hop Relational Traversal:\n" + "\n".join(graph_hops) if graph_hops else ""
 
-    # 5. Standardized LLM: Groq LLaMA 3.1 70B
     groq_key = get_secret("GROQ_API_KEY")
     gemini_key = get_secret("GEMINI_API_KEY")
     answer = ""
 
+    sys_prompt = "You are an enterprise research assistant using an 8-Node LangGraph Hybrid RAG system. Answer thoroughly, accurately, and concisely based on the document context."
+    user_prompt = f"Context from Hybrid Retrieval (FAISS + BM25 with RRF):\n{context_str[:5000]}\n{graph_context}\n\nQuestion: {query}"
+
     if groq_key:
-        try:
-            from langchain_groq import ChatGroq
-            llm = ChatGroq(model_name="llama-3.1-70b-versatile", temperature=0.2, groq_api_key=groq_key)
-            prompt = (
-                f"You are an enterprise research assistant using an 8-Node LangGraph Hybrid RAG system.\n"
-                f"Document Context (RRF Dense+BM25):\n{context_str[:5000]}\n"
-                f"{graph_context}\n\n"
-                f"Question: {query}\n\n"
-                f"Answer thoroughly and accurately based on the context:"
-            )
-            res = llm.invoke(prompt)
-            answer = res.content
-        except Exception:
-            answer = ""
+        answer = call_groq_llm(groq_key, sys_prompt, user_prompt)
 
     if not answer and gemini_key:
         try:
             import google.generativeai as genai
             genai.configure(api_key=gemini_key)
             model = genai.GenerativeModel("gemini-1.5-flash")
-            prompt = f"Using this context, answer the query:\n\n{context_str[:5000]}\n{graph_context}\n\nQuery: {query}"
-            res = model.generate_content(prompt)
+            res = model.generate_content(f"{sys_prompt}\n\n{user_prompt}")
             answer = res.text
         except Exception:
             answer = ""
