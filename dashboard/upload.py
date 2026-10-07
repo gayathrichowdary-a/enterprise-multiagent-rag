@@ -45,8 +45,8 @@ def load_vector_db(vector_path, embedding):
 def document_sidebar():
     st.subheader("📂 Loaded Documents")
 
-    if st.session_state.vector_stores:
-        for file_name, data in st.session_state.knowledge_sources.items():
+    all_docs = st.session_state.get("knowledge_sources", {}) or st.session_state.get("vector_stores", {})`n    if all_docs:
+        for file_name, data in all_docs.items():
             tier = data.get("authority_tier", "Tier 2")
             st.caption(f"📄 {file_name} • **{tier.split(' ')[0]}**")
     else:
@@ -268,6 +268,7 @@ def upload_page():
         st.subheader("📚 Active Enterprise Knowledge Sources")
         for name, data in st.session_state.knowledge_sources.items():
             st.write(f"📄 **{name}** | Dept: `{data.get('department', 'General')}` | Authority: `{data.get('authority_tier', 'Tier 2')}` | Reliability: `{data.get('reliability_score', 80.0)}%`")
+
 
 
 

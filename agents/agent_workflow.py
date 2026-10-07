@@ -125,7 +125,7 @@ def call_groq_llm(groq_key, sys_prompt, user_prompt):
 def run_workflow(query, chat_history=None):
     active_sources = st.session_state.get("active_chat_sources", [])
     if not active_sources:
-        active_sources = list(st.session_state.get("vector_stores", {}).keys())
+        active_sources = list(st.session_state.get("knowledge_sources", {}).keys()) or list(st.session_state.get("raw_document_texts", {}).keys()) or list(st.session_state.get("vector_stores", {}).keys())
         if not active_sources:
             active_sources = list(st.session_state.get("raw_document_texts", {}).keys())
             if not active_sources:
@@ -180,3 +180,4 @@ def run_workflow(query, chat_history=None):
         "sources": active_sources,
         "ares_scores": ares_scores
     }
+

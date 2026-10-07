@@ -166,3 +166,4 @@ def chat_page():
                     st.session_state.messages.append(AIMessage(content=err_msg))
 
         st.rerun()
+
