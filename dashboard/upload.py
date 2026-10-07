@@ -197,6 +197,10 @@ def upload_page():
 
                     # Load, chunk, and embed
                     documents = load_document(file_path)
+                    raw_doc_text = "\n\n".join([d.page_content for d in documents if hasattr(d, "page_content") and d.page_content.strip()])
+                    if "raw_document_texts" not in st.session_state:
+                        st.session_state["raw_document_texts"] = {}
+                    st.session_state["raw_document_texts"][safe_file_name] = raw_doc_text
                     chunks = chunk_text(documents)
 
                     try:
@@ -264,6 +268,7 @@ def upload_page():
         st.subheader("📚 Active Enterprise Knowledge Sources")
         for name, data in st.session_state.knowledge_sources.items():
             st.write(f"📄 **{name}** | Dept: `{data.get('department', 'General')}` | Authority: `{data.get('authority_tier', 'Tier 2')}` | Reliability: `{data.get('reliability_score', 80.0)}%`")
+
 
 
 

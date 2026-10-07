@@ -27,45 +27,39 @@ def get_secret(key_name):
     return ""
 
 def get_document_full_text(doc_name):
-    # 1. First check in-memory raw text (fastest and permanent in session)
+    """Retrieves full document text from RAM session state, disk, or vector store."""
+    # 1. From RAM Session State (100% reliable)
     raw_texts = st.session_state.get("raw_document_texts", {})
     if doc_name in raw_texts and raw_texts[doc_name].strip():
         return raw_texts[doc_name]
-    """Finds the actual document anywhere in uploads/ and extracts all its text."""
-    # Search all possible directories
-    search_patterns = [
+
+    # 2. From disk uploads/
+    patterns = [
         f"uploads/**/{doc_name}",
         f"uploads/{doc_name}",
-        f"**/{doc_name}",
-        f"uploads/**/*{os.path.splitext(doc_name)[0]}*"
+        f"**/{doc_name}"
     ]
-    
-    found_path = None
-    for pattern in search_patterns:
-        matches = glob.glob(pattern, recursive=True)
-        for m in matches:
+    for pat in patterns:
+        for m in glob.glob(pat, recursive=True):
             if os.path.isfile(m):
-                found_path = m
-                break
-        if found_path:
-            break
+                try:
+                    docs = load_document(m)
+                    txt = "\n\n".join([d.page_content for d in docs if hasattr(d, "page_content") and d.page_content.strip()])
+                    if txt.strip():
+                        if "raw_document_texts" not in st.session_state:
+                            st.session_state["raw_document_texts"] = {}
+                        st.session_state["raw_document_texts"][doc_name] = txt
+                        return txt
+                except Exception:
+                    pass
 
-    if found_path:
-        try:
-            docs = load_document(found_path)
-            full_text = "\n\n".join([d.page_content for d in docs if hasattr(d, "page_content") and d.page_content.strip()])
-            if full_text.strip():
-                return full_text
-        except Exception:
-            pass
-
-    # Fallback to session state FAISS store
+    # 3. From FAISS docstore
     stores = st.session_state.get("vector_stores", {})
     if doc_name in stores:
         v_db = stores[doc_name]
         try:
             if hasattr(v_db, "docstore") and hasattr(v_db.docstore, "_dict"):
-                texts = [d.page_content for d in v_db.docstore._dict.values() if hasattr(d, "page_content")]
+                texts = [d.page_content for d in v_db.docstore._dict.values() if hasattr(d, "page_content") and d.page_content.strip()]
                 if texts:
                     return "\n\n".join(texts)
         except Exception:
@@ -83,8 +77,7 @@ def calculate_real_ares_scores(query, context, answer):
     return {"context_relevance": cr, "grounded_faithfulness": gf, "answer_relevance": ar}
 
 def call_groq_llm(groq_key, sys_prompt, user_prompt):
-    """Calls Groq using both official client and requests fallback."""
-    # 1. Try official groq library
+    """Calls Groq official client or requests with browser headers."""
     if HAS_GROQ:
         try:
             client = Groq(api_key=groq_key)
@@ -105,7 +98,6 @@ def call_groq_llm(groq_key, sys_prompt, user_prompt):
         except Exception:
             pass
 
-    # 2. Try requests with browser User-Agent
     try:
         import requests
         headers = {
@@ -122,7 +114,7 @@ def call_groq_llm(groq_key, sys_prompt, user_prompt):
             "temperature": 0.2,
             "max_tokens": 1000
         }
-        res = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=30)
+        res = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=25)
         if res.status_code == 200:
             return res.json()["choices"][0]["message"]["content"]
     except Exception:
@@ -135,7 +127,9 @@ def run_workflow(query, chat_history=None):
     if not active_sources:
         active_sources = list(st.session_state.get("vector_stores", {}).keys())
         if not active_sources:
-            active_sources = st.session_state.get("uploaded_documents", [])
+            active_sources = list(st.session_state.get("raw_document_texts", {}).keys())
+            if not active_sources:
+                active_sources = st.session_state.get("uploaded_documents", [])
 
     all_document_texts = []
     for doc in active_sources:
@@ -150,11 +144,11 @@ def run_workflow(query, chat_history=None):
     answer = ""
 
     sys_prompt = (
-        "You are an enterprise research assistant analyzing uploaded corporate documents and resumes.\n"
+        "You are an enterprise research intelligence assistant.\n"
         "Read the provided document text carefully and provide a direct, factual, detailed answer to the user's question.\n"
-        "Do not make up facts. Ground your response entirely on the document content."
+        "Ground your response strictly on the document text."
     )
-    user_prompt = f"DOCUMENT CONTENT:\n{context_str[:8000]}\n\nQUESTION: {query}\n\nProvide a clear, thorough answer:"
+    user_prompt = f"DOCUMENT CONTENT:\n{context_str[:8000]}\n\nQUESTION: {query}\n\nAnswer:"
 
     if groq_key:
         answer = call_groq_llm(groq_key, sys_prompt, user_prompt)
@@ -169,14 +163,14 @@ def run_workflow(query, chat_history=None):
         except Exception:
             answer = ""
 
-    # If API keys are not working, extract the real text directly
+    # Clean fallback if API keys are not reachable
     if not answer:
         if context_str.strip():
             answer = f"### 📄 Extracted Content from Document:\n\n"
             lines = [l.strip() for l in context_str.split("\n") if l.strip() and not l.startswith("===")]
             answer += "\n\n".join(lines[:15])
         else:
-            answer = "⚠️ Could not read document. Please re-upload your document in 'Upload Documents' and click 'Ingest & Index Documents'."
+            answer = "⚠️ Document text not loaded in memory. Please go to 'Upload Documents', select your file, and click 'Ingest & Index Documents'."
 
     ares_scores = calculate_real_ares_scores(query, context_str, answer)
 
@@ -186,4 +180,3 @@ def run_workflow(query, chat_history=None):
         "sources": active_sources,
         "ares_scores": ares_scores
     }
-
