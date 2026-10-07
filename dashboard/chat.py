@@ -22,6 +22,10 @@ def chat_page():
     badge_border = "#334155" if is_dark else "#e2e8f0"
     text_muted = "#94a3b8" if is_dark else "#64748b"
 
+    # Safely initialize session state
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+
     st.title("💬 Adaptive Multi-Agent Enterprise Chat")
 
     all_files = list(st.session_state.get("vector_stores", {}).keys())
