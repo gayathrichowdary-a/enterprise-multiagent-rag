@@ -1,7 +1,8 @@
 ﻿import os
 import glob
 import re
-import math
+import json
+import urllib.request
 import streamlit as st
 from loaders.loader_router import load_document
 from database.source_db import update_source_feedback, get_source_score
@@ -19,13 +20,21 @@ except ImportError:
     HAS_NX = False
 
 def get_secret(key_name):
+    # Check environment variable
     val = os.getenv(key_name, "")
-    if not val and hasattr(st, "secrets"):
+    if val:
+        return str(val).strip()
+        
+    # Check Streamlit secrets (both UPPERCASE and lowercase)
+    if hasattr(st, "secrets"):
         try:
-            val = st.secrets.get(key_name, "")
+            if key_name in st.secrets:
+                return str(st.secrets[key_name]).strip()
+            if key_name.lower() in st.secrets:
+                return str(st.secrets[key_name.lower()]).strip()
         except Exception:
-            val = ""
-    return str(val).strip() if val else ""
+            pass
+    return ""
 
 def find_document_on_disk(doc_name):
     user = st.session_state.get("user", {})
@@ -90,40 +99,42 @@ def calculate_real_ares_scores(query, context, answer):
     ar = min(0.99, max(0.70, round(len(q_t & a_t) / max(1, len(q_t)) + 0.40, 2))) if q_t else 0.87
     return {"context_relevance": cr, "grounded_faithfulness": gf, "answer_relevance": ar}
 
-def call_groq_llm(groq_key, system_prompt, user_prompt):
-    """Calls Groq using native client with automatic model fallback."""
-    try:
-        from groq import Groq
-        client = Groq(api_key=groq_key)
-        for model_name in ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "llama3-70b-8192", "mixtral-8x7b-32768"]:
-            try:
-                chat_completion = client.chat.completions.create(
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt}
-                    ],
-                    model=model_name,
-                    temperature=0.2,
-                    max_tokens=600
-                )
-                return chat_completion.choices[0].message.content
-            except Exception:
-                continue
-    except Exception:
-        pass
-        
-    try:
-        from langchain_groq import ChatGroq
-        for model_name in ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]:
-            try:
-                llm = ChatGroq(model_name=model_name, temperature=0.2, groq_api_key=groq_key)
-                res = llm.invoke(f"{system_prompt}\n\n{user_prompt}")
-                return res.content
-            except Exception:
-                continue
-    except Exception:
-        pass
-    return ""
+def call_groq_direct(groq_key, system_prompt, user_prompt):
+    """Direct, lightweight HTTPS call to Groq API using standard Python."""
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {groq_key}",
+        "Content-Type": "application/json"
+    }
+    
+    # Try current active models on Groq
+    models_to_try = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "llama3-70b-8192"]
+    
+    last_error = ""
+    for model in models_to_try:
+        try:
+            payload = {
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                "temperature": 0.2,
+                "max_tokens": 800
+            }
+            req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers)
+            with urllib.request.urlopen(req, timeout=25) as response:
+                result = json.loads(response.read().decode("utf-8"))
+                return result["choices"][0]["message"]["content"]
+        except urllib.error.HTTPError as e:
+            err_body = e.read().decode("utf-8")
+            last_error = f"HTTP {e.code}: {err_body}"
+            continue
+        except Exception as e:
+            last_error = str(e)
+            continue
+            
+    return f"⚠️ Groq API Error: {last_error}"
 
 def run_workflow(query, chat_history=None):
     active_sources = st.session_state.get("active_chat_sources", [])
@@ -172,29 +183,22 @@ def run_workflow(query, chat_history=None):
     gemini_key = get_secret("GEMINI_API_KEY")
     answer = ""
 
-    sys_prompt = "You are an enterprise research assistant using an 8-Node LangGraph Hybrid RAG system. Answer thoroughly, accurately, and concisely based on the document context."
-    user_prompt = f"Context from Hybrid Retrieval (FAISS + BM25 with RRF):\n{context_str[:5000]}\n{graph_context}\n\nQuestion: {query}"
+    sys_prompt = "You are an enterprise research assistant using an 8-Node LangGraph Hybrid RAG system. Answer thoroughly, accurately, and directly based on the document context. Do not hallucinate."
+    user_prompt = f"Document Context (Hybrid FAISS + BM25 with RRF):\n{context_str[:5000]}\n{graph_context}\n\nQuestion: {query}"
 
     if groq_key:
-        answer = call_groq_llm(groq_key, sys_prompt, user_prompt)
-
-    if not answer and gemini_key:
+        answer = call_groq_direct(groq_key, sys_prompt, user_prompt)
+    elif gemini_key:
         try:
             import google.generativeai as genai
             genai.configure(api_key=gemini_key)
             model = genai.GenerativeModel("gemini-1.5-flash")
             res = model.generate_content(f"{sys_prompt}\n\n{user_prompt}")
             answer = res.text
-        except Exception:
-            answer = ""
-
-    if not answer:
-        if top_chunks:
-            answer = f"### 📄 Relevant Extracted Knowledge Chunks (Hybrid RRF):\n\n"
-            lines = [l.strip() for l in context_str.split("\n") if l.strip() and not l.startswith("===")]
-            answer += "\n\n".join(lines[:10])
-        else:
-            answer = "⚠️ Please index documents in Knowledge Sources to query the knowledge base."
+        except Exception as e:
+            answer = f"⚠️ Gemini Error: {str(e)}"
+    else:
+        answer = "⚠️ No API key found. Please add `GROQ_API_KEY` in Streamlit Cloud Secrets (Manage app -> Settings -> Secrets)."
 
     ares_scores = calculate_real_ares_scores(query, context_str, answer)
 
