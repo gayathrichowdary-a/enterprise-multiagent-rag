@@ -8,3 +8,5 @@ langchain-groq
 langgraph
 
 sentence-transformers
+
+plotly
