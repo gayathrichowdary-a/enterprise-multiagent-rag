@@ -27,6 +27,10 @@ def get_secret(key_name):
     return ""
 
 def get_document_full_text(doc_name):
+    # 1. First check in-memory raw text (fastest and permanent in session)
+    raw_texts = st.session_state.get("raw_document_texts", {})
+    if doc_name in raw_texts and raw_texts[doc_name].strip():
+        return raw_texts[doc_name]
     """Finds the actual document anywhere in uploads/ and extracts all its text."""
     # Search all possible directories
     search_patterns = [
@@ -182,3 +186,4 @@ def run_workflow(query, chat_history=None):
         "sources": active_sources,
         "ares_scores": ares_scores
     }
+
