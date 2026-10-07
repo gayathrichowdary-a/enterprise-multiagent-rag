@@ -1,5 +1,4 @@
 ﻿import os
-from loaders.image_loader import load_image
 
 class Document:
     def __init__(self, page_content, metadata=None):
@@ -8,51 +7,46 @@ class Document:
 
 def load_document(file_path):
     ext = os.path.splitext(file_path)[1].lower()
-    
-    # 1. Image OCR pipeline
-    if ext in [".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".webp"]:
+    text = ""
+
+    # DOCX: Extract from BOTH paragraphs and tables (crucial for resumes!)
+    if ext in [".docx", ".doc"]:
         try:
-            ocr_docs = load_image(file_path)
-            if ocr_docs and ocr_docs[0].page_content:
-                return ocr_docs
+            import docx
+            doc = docx.Document(file_path)
+            lines = []
+            for p in doc.paragraphs:
+                if p.text.strip():
+                    lines.append(p.text.strip())
+            for table in doc.tables:
+                for row in table.rows:
+                    row_texts = [cell.text.strip() for cell in row.cells if cell.text.strip()]
+                    if row_texts:
+                        lines.append(" | ".join(row_texts))
+            text = "\n".join(lines)
+        except Exception:
+            text = ""
+
+    # PDF
+    elif ext == ".pdf":
+        try:
+            from pypdf import PdfReader
+            reader = PdfReader(file_path)
+            for page in reader.pages:
+                t = page.extract_text()
+                if t: text += t + "\n"
         except Exception:
             pass
-        return [Document(page_content=f"Scanned Asset: {os.path.basename(file_path)}. Extracted via OCR pipeline.", metadata={"source": file_path, "type": "image_ocr"})]
 
-    text = ""
-    try:
-        if ext == ".txt":
+    # TXT / CSV / JSON
+    elif ext in [".txt", ".csv", ".json"]:
+        try:
             with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                 text = f.read()
-        elif ext == ".pdf":
-            try:
-                from pypdf import PdfReader
-                reader = PdfReader(file_path)
-                for page in reader.pages:
-                    t = page.extract_text()
-                    if t: text += t + "\n"
-            except Exception:
-                text = "PDF loaded: " + os.path.basename(file_path)
-        elif ext in [".docx", ".doc"]:
-            try:
-                from docx import Document as DocxDoc
-                doc = DocxDoc(file_path)
-                for p in doc.paragraphs:
-                    text += p.text + "\n"
-            except Exception:
-                text = "Document loaded: " + os.path.basename(file_path)
-        elif ext == ".csv":
-            import csv
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-                reader = csv.reader(f)
-                rows = [", ".join(r) for r in reader]
-                text = "\n".join(rows)
-        elif ext == ".json":
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-                text = f.read()
-        else:
-            text = f"File {os.path.basename(file_path)} indexed successfully."
-    except Exception as e:
-        text = f"Content extracted from {os.path.basename(file_path)}"
-        
+        except Exception:
+            pass
+
+    if not text.strip():
+        text = f"Document content from {os.path.basename(file_path)}"
+
     return [Document(page_content=text, metadata={"source": file_path, "file_name": os.path.basename(file_path)})]
