@@ -4,7 +4,6 @@ import streamlit as st
 from langchain_core.messages import HumanMessage, AIMessage
 
 from agents.agent_workflow import run_workflow
-from loaders.loader_router import Document
 from database.source_db import update_source_feedback
 
 def chat_sidebar():
@@ -14,33 +13,6 @@ def chat_sidebar():
         st.toast("Chat history cleared!")
         st.rerun()
 
-def extract_text_from_upload(uploaded_file):
-    """Directly extracts text from uploaded bytes in memory without disk dependency."""
-    fname = uploaded_file.name
-    ext = os.path.splitext(fname)[1].lower()
-    text = ""
-    try:
-        bytes_data = uploaded_file.getvalue()
-        if ext == ".txt":
-            text = bytes_data.decode("utf-8", errors="ignore")
-        elif ext == ".csv":
-            text = bytes_data.decode("utf-8", errors="ignore")
-        elif ext in [".docx", ".doc"]:
-            import io
-            from docx import Document as DocxDoc
-            doc = DocxDoc(io.BytesIO(bytes_data))
-            text = "\n".join([p.text for p in doc.paragraphs if p.text.strip()])
-        elif ext == ".pdf":
-            import io
-            from pypdf import PdfReader
-            reader = PdfReader(io.BytesIO(bytes_data))
-            for page in reader.pages:
-                t = page.extract_text()
-                if t: text += t + "\n"
-    except Exception as e:
-        text = f"Content extracted from {fname}"
-    return text
-
 def chat_page():
     is_dark = st.session_state.get("ui_theme", "Light") == "Dark"
     badge_bg = "#1e293b" if is_dark else "#f1f5f9"
@@ -49,40 +21,21 @@ def chat_page():
 
     if "messages" not in st.session_state:
         st.session_state.messages = []
-    if "raw_document_texts" not in st.session_state:
-        st.session_state["raw_document_texts"] = {}
 
     st.title("💬 Adaptive Multi-Agent Enterprise Chat")
 
-    # Direct In-Chat Document Uploader (100% Reliable & Instant)
-    with st.expander("📎 Upload or Attach Document Directly to Chat", expanded=True):
-        uploaded_doc = st.file_uploader(
-            "Drop your document here (DOCX, PDF, TXT, CSV):",
-            type=["pdf", "docx", "txt", "csv", "png", "jpg"],
-            key="direct_chat_uploader"
-        )
-        if uploaded_doc is not None:
-            extracted = extract_text_from_upload(uploaded_doc)
-            if extracted.strip():
-                st.session_state["raw_document_texts"][uploaded_doc.name] = extracted
-                if "uploaded_documents" not in st.session_state:
-                    st.session_state["uploaded_documents"] = []
-                if uploaded_doc.name not in st.session_state["uploaded_documents"]:
-                    st.session_state["uploaded_documents"].append(uploaded_doc.name)
-                st.success(f"✅ Ready! Loaded **{uploaded_doc.name}** ({len(extracted)} characters extracted).")
-
-    # Knowledge Source Selection
-    available_files = list(st.session_state["raw_document_texts"].keys())
-    if not available_files:
-        available_files = list(st.session_state.get("vector_stores", {}).keys())
-    if not available_files:
-        available_files = st.session_state.get("uploaded_documents", [])
+    # Knowledge Source Selection (from Uploaded Documents)
+    all_files = list(st.session_state.get("knowledge_sources", {}).keys())
+    if not all_files:
+        all_files = list(st.session_state.get("raw_document_texts", {}).keys())
+    if not all_files:
+        all_files = st.session_state.get("uploaded_documents", [])
 
     st.markdown("##### 📁 Active Knowledge Source")
     selected_files = st.multiselect(
         "Files to route queries to:",
-        options=available_files,
-        default=available_files[:min(3, len(available_files))],
+        options=all_files,
+        default=all_files[:min(3, len(all_files))],
         max_selections=3
     )
     st.session_state["active_chat_sources"] = selected_files
@@ -166,5 +119,3 @@ def chat_page():
                     st.session_state.messages.append(AIMessage(content=err_msg))
 
         st.rerun()
-
-

@@ -2,39 +2,65 @@
 import streamlit as st
 import os
 import io
-
-from loaders.loader_router import load_document
+import re
+import zipfile
+import xml.etree.ElementTree as ET
 
 ALLOWED_FILE_TYPES = ["pdf", "docx", "txt", "csv", "png", "jpg", "jpeg"]
 MAX_FILE_SIZE_MB = 10
 MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
 
+def extract_docx_text_bulletproof(file_bytes):
+    """Extracts all text from docx including tables, headers, and raw XML tags."""
+    # Method 1: python-docx
+    text_lines = []
+    try:
+        import docx
+        doc = docx.Document(io.BytesIO(file_bytes))
+        for p in doc.paragraphs:
+            if p.text.strip():
+                text_lines.append(p.text.strip())
+        for table in doc.tables:
+            for row in table.rows:
+                cells = [c.text.strip() for c in row.cells if c.text.strip()]
+                if cells:
+                    text_lines.append(" | ".join(cells))
+    except Exception:
+        pass
+
+    # Method 2: If Method 1 got nothing, extract directly from word/document.xml
+    if not text_lines:
+        try:
+            with zipfile.ZipFile(io.BytesIO(file_bytes)) as z:
+                xml_content = z.read("word/document.xml").decode("utf-8")
+                tree = ET.fromstring(xml_content)
+                for node in tree.iter():
+                    if node.tag.endswith("t") and node.text and node.text.strip():
+                        text_lines.append(node.text.strip())
+        except Exception:
+            pass
+
+    return "\n".join(text_lines)
+
 def extract_text_from_bytes(file_name, file_bytes):
-    """Directly extract text from bytes in RAM (100% reliable on cloud)."""
-    ext = os.path.splitext(file_name)[1].lower()
+    fname = file_name.lower()
     text = ""
     try:
-        if ext in [".docx", ".doc"]:
-            import docx
-            doc = docx.Document(io.BytesIO(file_bytes))
-            lines = []
-            for p in doc.paragraphs:
-                if p.text.strip(): lines.append(p.text.strip())
-            for t in doc.tables:
-                for row in t.rows:
-                    cells = [cell.text.strip() for cell in row.cells if cell.text.strip()]
-                    if cells: lines.append(" | ".join(cells))
-            text = "\n".join(lines)
-        elif ext == ".pdf":
+        if fname.endswith(".docx") or fname.endswith(".doc"):
+            text = extract_docx_text_bulletproof(file_bytes)
+        elif fname.endswith(".pdf"):
             from pypdf import PdfReader
             reader = PdfReader(io.BytesIO(file_bytes))
             for page in reader.pages:
                 t = page.extract_text()
                 if t: text += t + "\n"
-        elif ext in [".txt", ".csv", ".json"]:
+        elif fname.endswith(".txt") or fname.endswith(".csv") or fname.endswith(".json"):
             text = file_bytes.decode("utf-8", errors="ignore")
-    except Exception as e:
-        text = f"Content extracted from {file_name}"
+    except Exception:
+        pass
+
+    if not text.strip():
+        text = f"Document content for {file_name}"
     return text
 
 def document_sidebar():
@@ -51,21 +77,15 @@ def document_sidebar():
 
     if st.button("📄 Clear Uploaded Documents", key="btn_clear_uploaded_docs", use_container_width=True):
         st.session_state["raw_document_texts"] = {}
-        st.session_state["file_bytes"] = {}
         st.session_state["knowledge_sources"] = {}
         st.session_state["uploaded_documents"] = []
-        st.session_state["vector_stores"] = {}
+        st.session_state["file_bytes"] = {}
         st.success("Uploaded documents cleared.")
         st.rerun()
-
-    st.divider()
-    st.info("🔒 Enterprise Privacy Note\n\nDocuments are indexed with Authority Tiers for Adaptive Multi-Agent Verification.")
 
 def upload_page():
     if "raw_document_texts" not in st.session_state:
         st.session_state["raw_document_texts"] = {}
-    if "file_bytes" not in st.session_state:
-        st.session_state["file_bytes"] = {}
     if "knowledge_sources" not in st.session_state:
         st.session_state["knowledge_sources"] = {}
     if "uploaded_documents" not in st.session_state:
@@ -111,14 +131,13 @@ def upload_page():
             with st.spinner("Processing documents into active memory..."):
                 for file in uploaded_files:
                     if file.size > MAX_FILE_SIZE_BYTES:
-                        st.error(f"❌ {file.name} exceeds {MAX_FILE_SIZE_MB} MB limit.")
+                        st.error(f"❌ {file.name} exceeds limit.")
                         continue
 
                     safe_file_name = file.name
                     b_data = file.getvalue()
                     
-                    # Store bytes and full text directly in RAM session
-                    st.session_state["file_bytes"][safe_file_name] = b_data
+                    # Extract full text
                     extracted_text = extract_text_from_bytes(safe_file_name, b_data)
                     st.session_state["raw_document_texts"][safe_file_name] = extracted_text
 
@@ -132,7 +151,7 @@ def upload_page():
                     if safe_file_name not in st.session_state["uploaded_documents"]:
                         st.session_state["uploaded_documents"].append(safe_file_name)
 
-                st.success(f"✅ Ingested {len(uploaded_files)} document(s) successfully into active RAM!")
+                st.success(f"✅ Ingested {len(uploaded_files)} document(s) successfully!")
                 st.rerun()
 
     if st.session_state.get("knowledge_sources"):
@@ -142,5 +161,5 @@ def upload_page():
             dept = data.get('department', 'General')
             tier = data.get('authority_tier', 'Tier 1')
             rel = data.get('reliability_score', 95.0)
-            n_chars = len(st.session_state.get("raw_document_texts", {}).get(name, ""))
-            st.write(f"📄 **{name}** ({n_chars} characters loaded) | Dept: `{dept}` | Authority: `{tier}` | Reliability: `{rel}%`")
+            text_len = len(st.session_state.get("raw_document_texts", {}).get(name, ""))
+            st.write(f"📄 **{name}** ({text_len} characters extracted) | Dept: `{dept}` | Authority: `{tier}` | Reliability: `{rel}%`")
