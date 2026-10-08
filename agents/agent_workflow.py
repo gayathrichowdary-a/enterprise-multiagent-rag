@@ -1,10 +1,7 @@
 ﻿import os
-import glob
-import re
 import json
 import streamlit as st
-from loaders.loader_router import load_document
-from database.source_db import update_source_feedback, get_source_score
+from database.source_db import update_source_feedback
 
 try:
     from groq import Groq
@@ -27,39 +24,28 @@ def get_secret(key_name):
     return ""
 
 def get_document_full_text(doc_name):
-    # 1. Exact match in RAM
+    """Fetches document text directly from in-memory session state."""
     raw_texts = st.session_state.get("raw_document_texts", {})
-    if doc_name in raw_texts and len(raw_texts[doc_name].strip()) > 10:
+    if doc_name in raw_texts and len(raw_texts[doc_name].strip()) > 5:
         return raw_texts[doc_name]
 
-    # 2. Case-insensitive / partial match in RAM
+    # Check case-insensitive match
     clean_target = doc_name.replace(" ", "").lower()
     for k, v in raw_texts.items():
         if clean_target in k.replace(" ", "").lower() or k.replace(" ", "").lower() in clean_target:
-            if len(v.strip()) > 10:
+            if len(v.strip()) > 5:
                 return v
 
-    # 3. Search disk in uploads/
-    patterns = [f"uploads/**/{doc_name}", f"uploads/*{os.path.splitext(doc_name)[0]}*"]
-    for pat in patterns:
-        for m in glob.glob(pat, recursive=True):
-            if os.path.isfile(m):
-                try:
-                    docs = load_document(m)
-                    txt = "\n\n".join([d.page_content for d in docs if hasattr(d, "page_content") and d.page_content.strip()])
-                    if len(txt.strip()) > 10:
-                        st.session_state.setdefault("raw_document_texts", {})[doc_name] = txt
-                        return txt
-                except Exception:
-                    pass
-
-    # 4. If any text exists in session, return it
+    # Fallback to any loaded document text
     if raw_texts:
-        return list(raw_texts.values())[0]
+        for t in raw_texts.values():
+            if len(t.strip()) > 5:
+                return t
 
     return ""
 
 def calculate_real_ares_scores(query, context, answer):
+    import re
     def tokens(t):
         return set(re.findall(r'\b[a-zA-Z]{3,}\b', t.lower()))
     q_t, c_t, a_t = tokens(query), tokens(context), tokens(answer)
@@ -69,6 +55,7 @@ def calculate_real_ares_scores(query, context, answer):
     return {"context_relevance": cr, "grounded_faithfulness": gf, "answer_relevance": ar}
 
 def call_groq_llm(groq_key, sys_prompt, user_prompt):
+    # 1. Try official groq client
     if HAS_GROQ:
         try:
             client = Groq(api_key=groq_key)
@@ -89,6 +76,7 @@ def call_groq_llm(groq_key, sys_prompt, user_prompt):
         except Exception:
             pass
 
+    # 2. Try direct HTTP with browser User-Agent
     try:
         import requests
         headers = {
@@ -127,12 +115,11 @@ def run_workflow(query, chat_history=None):
             all_document_texts.append(f"=== Document: {doc} ===\n{t}")
 
     context_str = "\n\n".join(all_document_texts)
-    
     groq_key = get_secret("GROQ_API_KEY")
     gemini_key = get_secret("GEMINI_API_KEY")
     answer = ""
 
-    sys_prompt = "You are an enterprise research intelligence assistant. Provide a direct, structured, factual answer based strictly on the provided document text."
+    sys_prompt = "You are an enterprise research intelligence assistant. Answer the user question accurately, concisely, and factually based strictly on the provided document text."
     user_prompt = f"DOCUMENT CONTENT:\n{context_str[:8000]}\n\nQUESTION: {query}\n\nAnswer:"
 
     if groq_key:
@@ -150,11 +137,11 @@ def run_workflow(query, chat_history=None):
 
     if not answer:
         if context_str.strip():
-            answer = f"### 📄 Key Content Extracted from Document:\n\n"
+            answer = f"### 📄 Key Content from Document:\n\n"
             lines = [l.strip() for l in context_str.split("\n") if l.strip() and not l.startswith("===")]
             answer += "\n\n".join(lines[:15])
         else:
-            answer = "⚠️ Please drop your file into the 'Upload' box above to chat with it."
+            answer = "⚠️ Document text not loaded. Please go to 'Upload Documents', select your file, and click 'Ingest & Index Documents'."
 
     ares_scores = calculate_real_ares_scores(query, context_str, answer)
 
