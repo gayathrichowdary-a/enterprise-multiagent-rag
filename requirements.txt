@@ -10,3 +10,5 @@ langgraph
 sentence-transformers
 
 plotly
+
+google-generativeai
