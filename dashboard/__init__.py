@@ -1,5 +1,4 @@
 import streamlit as st
-from dashboard.upload import document_sidebar
 from dashboard.chat import chat_sidebar
 
 def render_sidebar(current_page="Home"):
@@ -17,7 +16,7 @@ def render_sidebar(current_page="Home"):
         6. Settings
         7. Memory
         8. History
-    - Document Management & Multi-Agent RAG Controls
+    - Multi-Agent RAG Controls
     """
     with st.sidebar:
         user_obj = st.session_state.get("user", {})
@@ -45,75 +44,3 @@ def render_sidebar(current_page="Home"):
         """, unsafe_allow_html=True)
 
         # 3. Theme & Logout Controls
-        is_dark = st.session_state.get("dark_mode", False)
-        col_t1, col_t2 = st.columns([2, 1])
-        with col_t1:
-            dark_toggle = st.toggle("🌙 Dark Mode", value=is_dark, key="sb_dark_toggle")
-            if dark_toggle != is_dark:
-                st.session_state["dark_mode"] = dark_toggle
-                st.rerun()
-        with col_t2:
-            if st.button("Logout", key="sb_logout_btn", use_container_width=True):
-                st.session_state["logged_in"] = False
-                st.session_state["authenticated"] = False
-                st.session_state["page"] = "login"
-                st.session_state["nav_selection"] = "Home"
-                st.session_state.pop("user", None)
-                st.rerun()
-
-        st.markdown("---")
-
-        # 4. Navigation Menu Bar with full button set requested by user
-        st.markdown("### 🧭 Navigation")
-        nav_options = [
-            "Home",
-            "Upload Documents",
-            "Chat",
-            "Compare Documents",
-            "Knowledge Graph",
-            "Settings",
-            "Memory",
-            "History"
-        ]
-
-        # Ensure nav_selection state is valid
-        if "nav_selection" not in st.session_state or st.session_state["nav_selection"] not in nav_options:
-            st.session_state["nav_selection"] = current_page if current_page in nav_options else "Home"
-
-        current_nav_index = nav_options.index(st.session_state["nav_selection"]) if st.session_state["nav_selection"] in nav_options else 0
-
-        selected_nav = st.radio(
-            "Navigation Menu",
-            nav_options,
-            index=current_nav_index,
-            key="radio_nav_menu",
-            label_visibility="collapsed"
-        )
-
-        if selected_nav != st.session_state["nav_selection"]:
-            st.session_state["nav_selection"] = selected_nav
-            # Synchronize page router key
-            page_map = {
-                "Home": "home",
-                "Upload Documents": "upload",
-                "Chat": "dashboard",
-                "Compare Documents": "compare",
-                "Knowledge Graph": "graph",
-                "Settings": "settings",
-                "Memory": "memory",
-                "History": "history"
-            }
-            st.session_state["page"] = page_map.get(selected_nav, "dashboard")
-            st.rerun()
-
-        st.markdown("---")
-
-        # 5. Document Management Sidebar (Uploads & Indexing)
-        document_sidebar()
-
-        st.markdown("---")
-
-        # 6. Multi-Agent RAG Controls Sidebar
-        chat_sidebar()
-
-__all__ = ["render_sidebar"]
