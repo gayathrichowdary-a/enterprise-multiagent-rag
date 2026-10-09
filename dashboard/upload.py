@@ -103,3 +103,152 @@ def document_sidebar():
             st.session_state["vector_chunks"] = 0
             st.toast("Knowledge base cleared.")
             st.rerun()
+
+
+def upload_page():
+    """Full-page view for Enterprise Document Ingestion & Knowledge Base Management."""
+    col_nav1, col_nav2 = st.columns([5, 1])
+    with col_nav1:
+        st.title("📁 Knowledge Base & Document Management")
+        st.caption("Upload enterprise documents, configure chunking parameters, and manage vector indices.")
+    with col_nav2:
+        if st.button("💬 Chat Dashboard", key="btn_upload_to_dash", use_container_width=True):
+            st.session_state["page"] = "dashboard"
+            st.rerun()
+
+    # KPI Statistics Row
+    doc_list = st.session_state.get("documents_list", [])
+    doc_count = len(doc_list)
+    vector_chunks = st.session_state.get("vector_chunks", 1284)
+    
+    m1, m2, m3, m4 = st.columns(4)
+    with m1:
+        st.metric("Total Indexed Docs", doc_count)
+    with m2:
+        st.metric("Vector Chunks", vector_chunks)
+    with m3:
+        st.metric("Embedding Model", "text-embedding-004 (768d)")
+    with m4:
+        st.metric("Vector Index", "pgvector HNSW")
+
+    st.markdown("---")
+
+    tab_upload, tab_library, tab_config = st.tabs(["📤 Upload & Index", "📚 Document Corpus", "⚙️ Vector Settings"])
+
+    with tab_upload:
+        st.markdown("#### Upload Documents to Knowledge Base")
+        uploaded_files = st.file_uploader(
+            "Upload Enterprise Documents",
+            type=["pdf", "docx", "txt", "csv", "md", "json"],
+            accept_multiple_files=True,
+            key="full_upload_files"
+        )
+
+        if uploaded_files:
+            st.success(f"✓ {len(uploaded_files)} file(s) ready for indexing")
+            if st.button("⚡ Index Staged Files Now", key="btn_page_index_now", type="primary", use_container_width=True):
+                if "documents_list" not in st.session_state:
+                    st.session_state["documents_list"] = []
+
+                today_str = datetime.date.today().strftime("%Y-%m-%d")
+                chunk_size = st.session_state.get("page_chunk_size", 512)
+                added_chunks = 0
+
+                for f in uploaded_files:
+                    file_size_kb = max(1, round(len(f.getvalue()) / 1024, 1)) if hasattr(f, 'getvalue') else 24
+                    calc_chunks = max(4, int(file_size_kb * 1024 / chunk_size))
+                    added_chunks += calc_chunks
+                    ext = f.name.split(".")[-1].lower()
+                    cat_map = {
+                        "pdf": "Technical / Specification",
+                        "docx": "Compliance & Policy",
+                        "txt": "Internal Notes",
+                        "csv": "Structured Analytics",
+                        "md": "Engineering Docs",
+                        "json": "Schema & API"
+                    }
+                    category = cat_map.get(ext, "Enterprise Corpus")
+
+                    existing_names = [d["name"] for d in st.session_state["documents_list"]]
+                    if f.name not in existing_names:
+                        st.session_state["documents_list"].insert(0, {
+                            "id": f"doc-{random.randint(100, 999)}",
+                            "name": f.name,
+                            "category": category,
+                            "chunks": calc_chunks,
+                            "size": f"{file_size_kb} KB",
+                            "status": "Indexed",
+                            "updated": today_str
+                        })
+
+                st.session_state["total_docs"] = len(st.session_state["documents_list"])
+                st.session_state["vector_chunks"] = st.session_state.get("vector_chunks", 1284) + added_chunks
+                st.toast(f"🎉 Successfully indexed {len(uploaded_files)} file(s) into {added_chunks} vector chunks!")
+                st.rerun()
+
+    with tab_library:
+        st.markdown("#### Indexed Document Catalog")
+        if doc_list:
+            for i, doc in enumerate(doc_list):
+                col_d1, col_d2, col_d3, col_d4 = st.columns([4, 2, 2, 1])
+                with col_d1:
+                    st.markdown(f"**📄 {doc.get('name', 'Document')}**")
+                    st.caption(f"Category: {doc.get('category', 'General')} • ID: `{doc.get('id', 'N/A')}`")
+                with col_d2:
+                    st.markdown(f"**{doc.get('chunks', 0)} chunks**")
+                    st.caption(f"Size: {doc.get('size', 'N/A')}")
+                with col_d3:
+                    st.markdown(f"Status: `{doc.get('status', 'Indexed')}`")
+                    st.caption(f"Updated: {doc.get('updated', 'Today')}")
+                with col_d4:
+                    if st.button("🗑️", key=f"del_doc_{i}", help="Remove from index"):
+                        doc_list.pop(i)
+                        st.session_state["documents_list"] = doc_list
+                        st.session_state["total_docs"] = len(doc_list)
+                        st.rerun()
+                st.markdown("---")
+        else:
+            st.info("No documents currently indexed. Upload files or load the sample corpus.")
+
+    with tab_config:
+        st.markdown("#### Vector Pipeline Hyperparameters")
+        col_c1, col_c2 = st.columns(2)
+        with col_c1:
+            st.slider("Chunk Size (tokens)", min_value=128, max_value=2048, value=512, step=64, key="page_chunk_size")
+            st.slider("Chunk Overlap (tokens)", min_value=0, max_value=256, value=64, step=16, key="page_chunk_overlap")
+        with col_c2:
+            st.selectbox("Embedding Model", [
+                "text-embedding-004 (768d)",
+                "text-embedding-3-large (1536d)",
+                "bge-large-en-v1.5 (1024d)"
+            ], key="page_emb_model")
+            st.selectbox("Vector Database Backend", [
+                "pgvector HNSW (Cloud SQL)",
+                "Pinecone Serverless (Cosine)",
+                "Chroma In-Memory"
+            ], key="page_vector_backend")
+
+        col_act1, col_act2 = st.columns(2)
+        with col_act1:
+            if st.button("📥 Load Sample Enterprise Corpus", key="btn_page_load_sample", use_container_width=True):
+                sample_docs = [
+                    {"id": "doc-01", "name": "Enterprise_Security_Architecture_v4.pdf", "category": "Security & SecOps", "chunks": 142, "size": "450 KB", "status": "Indexed", "updated": "2026-10-08"},
+                    {"id": "doc-02", "name": "MultiAgent_Orchestration_Spec.pdf", "category": "Engineering", "chunks": 98, "size": "320 KB", "status": "Indexed", "updated": "2026-10-07"},
+                    {"id": "doc-03", "name": "Global_Compliance_SOC2_HIPAA.docx", "category": "Legal & Audit", "chunks": 315, "size": "890 KB", "status": "Indexed", "updated": "2026-10-06"},
+                    {"id": "doc-04", "name": "Hybrid_Vector_Retrieval_Benchmark.md", "category": "AI Research", "chunks": 64, "size": "128 KB", "status": "Indexed", "updated": "2026-10-05"},
+                    {"id": "doc-05", "name": "Q3_Infrastructure_SLA_CostReport.csv", "category": "DevOps", "chunks": 112, "size": "210 KB", "status": "Indexed", "updated": "2026-10-04"},
+                ]
+                st.session_state["documents_list"] = sample_docs
+                st.session_state["total_docs"] = len(sample_docs)
+                st.session_state["vector_chunks"] = sum(d["chunks"] for d in sample_docs)
+                st.toast("Loaded sample corpus!")
+                st.rerun()
+        with col_act2:
+            if st.button("🗑️ Clear All Indexed Documents", key="btn_page_clear_corpus", use_container_width=True):
+                st.session_state["documents_list"] = []
+                st.session_state["total_docs"] = 0
+                st.session_state["vector_chunks"] = 0
+                st.toast("Corpus cleared.")
+                st.rerun()
+
+__all__ = ["document_sidebar", "upload_page"]
