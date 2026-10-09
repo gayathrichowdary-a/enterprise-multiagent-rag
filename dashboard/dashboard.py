@@ -3,6 +3,13 @@ import base64
 import time
 import streamlit as st
 
+# Modular safe imports
+try:
+    from dashboard.nav import render_sidebar
+except Exception:
+    def render_sidebar(current_page="Chat"):
+        pass
+
 try:
     from dashboard.upload import document_sidebar, upload_page
 except Exception:
@@ -156,6 +163,7 @@ def inject_global_theme(is_dark=False):
             box-shadow: 0 2px 8px rgba(0,0,0,0.02) !important;
         }}
 
+        /* Clean Tab Navigation */
         .stTabs [data-baseweb="tab-list"] {{
             gap: 8px;
             border-bottom: 2px solid {border_card};
@@ -172,6 +180,7 @@ def inject_global_theme(is_dark=False):
             border-bottom: 2px solid {accent_blue} !important;
         }}
 
+        /* Buttons */
         div.stButton > button[kind="primary"] {{
             background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
             color: #ffffff !important;
@@ -207,6 +216,7 @@ def init_session_state():
             }
         ]
 
+    # Initialize default academic enterprise sources
     if "documents_list" not in st.session_state or not st.session_state["documents_list"]:
         st.session_state["documents_list"] = [
             {
@@ -320,6 +330,7 @@ def apply_source_feedback(source_id: str, is_positive: bool):
                 d["negativeFeedback"] = d.get("negativeFeedback", 0) + 1
                 d["reliabilityScore"] = max(10, d.get("reliabilityScore", 90) - 4)
 
+            # Update trust status badge
             score = d["reliabilityScore"]
             if score >= 75:
                 d["trustStatus"] = "Certified"
@@ -336,49 +347,19 @@ def dashboard():
     """Main Dashboard view for Enterprise Multi-Agent RAG Platform."""
     init_session_state()
 
+    # 1. Apply global theme
     is_dark = st.session_state.get("dark_mode", False)
     inject_global_theme(is_dark)
 
-    with st.sidebar:
-        user_obj = st.session_state.get("user", {})
-        user_name = user_obj.get("name") or st.session_state.get("user_name") or st.session_state.get("username") or "A. Gayathri (23B61A7202)"
-        user_email = user_obj.get("email") or st.session_state.get("user_email") or "akirigayathri@gmail.com"
+    # 2. Render Sidebar
+    from dashboard.nav import render_sidebar
+    render_sidebar("Chat")
 
-        st.markdown(f"""
-            <div class="user-card">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                    <span style="font-size: 11px; background: #2563eb; color: white; padding: 2px 8px; border-radius: 10px; font-weight: 700;">ENTERPRISE</span>
-                    <span style="font-size: 11px; color: #10b981; font-weight: 700;">● Active</span>
-                </div>
-                <div class="user-name">👤 {user_name}</div>
-                <div class="user-email">{user_email}</div>
-                <div style="font-size: 11px; color: #64748b; margin-top: 4px;">Nalla Malla Reddy Engg College</div>
-            </div>
-        """, unsafe_allow_html=True)
-
-        col_t1, col_t2 = st.columns([2, 1])
-        with col_t1:
-            dark_toggle = st.toggle("🌙 Dark Mode", value=is_dark)
-            if dark_toggle != is_dark:
-                st.session_state["dark_mode"] = dark_toggle
-                st.rerun()
-        with col_t2:
-            if st.button("Logout", key="logout_btn", use_container_width=True):
-                st.session_state["logged_in"] = False
-                st.session_state["authenticated"] = False
-                st.session_state["page"] = "login"
-                st.session_state["current_page"] = "login"
-                st.session_state.pop("user", None)
-                st.rerun()
-
-        st.markdown("---")
-        document_sidebar()
-        st.markdown("---")
-        chat_sidebar()
-
+    # 3. Retrieve Dashboard Robot Image
     img_b64 = get_dashboard_image_b64()
     img_tag = f'<img src="data:image/png;base64,{img_b64}" style="width: 140px; height: 140px; object-fit: cover; border-radius: 18px; box-shadow: 0 10px 25px rgba(2, 18, 53, 0.4); border: 1px solid rgba(255, 255, 255, 0.15);" alt="Dashboard AI Robot" />' if img_b64 else '<div style="font-size: 64px;">🤖</div>'
 
+    # 4. Hero Welcome Card featuring the 3D Dashboard Robot
     current_mode = st.session_state.get("agent_mode_select", "Adaptive Multi-Agent (Authority-Weighted)")
     st.markdown(f"""
         <div style="background: linear-gradient(135deg, #021235 0%, #031B4E 55%, #06286E 100%);
@@ -410,6 +391,7 @@ def dashboard():
         </div>
     """, unsafe_allow_html=True)
 
+    # 5. Dashboard Metrics Row
     docs = st.session_state.get("documents_list", [])
     total_docs = len(docs)
     vector_chunks = st.session_state.get("vector_chunks", 1284)
@@ -427,6 +409,7 @@ def dashboard():
 
     st.markdown("<div style='height: 1.5rem;'></div>", unsafe_allow_html=True)
 
+    # 6. Tabbed Multi-Agent Dashboard
     tab_chat, tab_rankings, tab_ares, tab_kb, tab_specs = st.tabs([
         "💬 Multi-Agent Chat Console",
         "🏆 Source Reliability Rankings",
@@ -435,7 +418,9 @@ def dashboard():
         "🎓 Academic Project & Specs"
     ])
 
-    # TAB 1: Chat Console
+    # =========================================================================
+    # TAB 1: Multi-Agent RAG Chat Console
+    # =========================================================================
     with tab_chat:
         st.markdown("#### ⚡ Quick Enterprise Queries")
         q_col1, q_col2, q_col3 = st.columns(3)
@@ -454,10 +439,12 @@ def dashboard():
 
         st.markdown("---")
 
+        # Render conversation history
         for idx, msg in enumerate(st.session_state.get("messages", [])):
             with st.chat_message(msg["role"]):
                 st.write(msg["content"])
 
+                # If assistant message has agent execution trace, show details
                 if msg["role"] == "assistant" and "agent_trace" in msg and msg["agent_trace"]:
                     trace = msg["agent_trace"]
                     with st.expander("🔍 Agent Execution Trace & Routing", expanded=False):
@@ -469,6 +456,7 @@ def dashboard():
                         with t_col3:
                             st.caption(f"**Confidence:**\n{trace.get('confidence', '98%')}")
 
+                # If message has sources, show citation cards with ARES Tri-Judge scores and feedback
                 if msg["role"] == "assistant" and "sources" in msg and msg["sources"]:
                     with st.expander(f"📚 Retrieved Sources & Citations ({len(msg['sources'])})", expanded=False):
                         for s_idx, src in enumerate(msg["sources"]):
@@ -492,6 +480,7 @@ def dashboard():
                                 </div>
                             """, unsafe_allow_html=True)
 
+                            # Dynamic Feedback Buttons
                             fb_c1, fb_c2, fb_c3 = st.columns([1, 1, 6])
                             with fb_c1:
                                 if st.button("👍 Helpful", key=f"fb_pos_{idx}_{s_idx}"):
@@ -504,6 +493,7 @@ def dashboard():
                                     st.toast(f"Negative feedback logged for {src['name']}! Reliability penalized.")
                                     st.rerun()
 
+        # Handle pending quick queries or chat input
         prompt = st.chat_input("Ask any question across your enterprise documents...")
         pending = st.session_state.pop("pending_query", None)
         active_query = pending if pending else prompt
@@ -519,6 +509,7 @@ def dashboard():
                     ans, sources, trace = run_rag_pipeline(active_query)
                     st.write(ans)
 
+                    # Show trace
                     with st.expander("🔍 Agent Execution Trace & Routing", expanded=False):
                         t_col1, t_col2, t_col3 = st.columns(3)
                         with t_col1:
@@ -528,6 +519,7 @@ def dashboard():
                         with t_col3:
                             st.caption(f"**Confidence:**\n{trace['confidence']}")
 
+                    # Show sources
                     if sources:
                         with st.expander(f"📚 Retrieved Sources & Citations ({len(sources)})", expanded=True):
                             for s_idx, src in enumerate(sources):
@@ -559,9 +551,13 @@ def dashboard():
             })
             st.rerun()
 
-    # TAB 2: Source Rankings
+    # =========================================================================
+    # TAB 2: Source Reliability Rankings
+    # =========================================================================
     with tab_rankings:
         st.markdown("#### 🏆 Source Reliability Rankings & Authority Management")
+        st.caption("Real-time trust scores dynamically adjusted by user feedback and Authority Tier weighting.")
+
         col_sr1, col_sr2 = st.columns([3, 1])
         with col_sr1:
             dept_filter = st.selectbox(
@@ -609,7 +605,9 @@ def dashboard():
                             st.rerun()
                 st.markdown("---")
 
+    # =========================================================================
     # TAB 3: ARES Quality Assessment
+    # =========================================================================
     with tab_ares:
         st.markdown("#### 📈 ARES Evaluation & Benchmark Analytics")
         st.caption("Based on: *ARES: An Automated Evaluation Framework for Retrieval-Augmented Generation Systems* (Stanford University & Databricks, NAACL 2024)")
@@ -646,6 +644,7 @@ def dashboard():
         st.markdown("<div style='height: 1rem;'></div>", unsafe_allow_html=True)
         st.markdown("##### 📊 Benchmark Matrix Comparison (NAACL 2024 Paper)")
 
+        # Benchmark comparison table
         st.markdown("""
         | Evaluation System | Context Relevance Accuracy | Answer Relevance Accuracy | Kendall's Tau (Rank Corr) |
         | :--- | :--- | :--- | :--- |
@@ -654,7 +653,9 @@ def dashboard():
         | Zero-Shot GPT-3.5 | 73.8% - 84.3% | 85.2% - 95.5% | 0.82 - 0.89 |
         """)
 
-    # TAB 4: Knowledge Base
+    # =========================================================================
+    # TAB 4: Knowledge Base & Document Chunks
+    # =========================================================================
     with tab_kb:
         st.markdown("#### 📚 Active Enterprise Knowledge Corpus")
         col_f1, col_f2 = st.columns([3, 1])
@@ -703,7 +704,9 @@ def dashboard():
                             st.toast(f"Removed {d['name']}")
                             st.rerun()
 
-    # TAB 5: Academic Project & Specs
+    # =========================================================================
+    # TAB 5: Academic Project & Specifications
+    # =========================================================================
     with tab_specs:
         st.markdown("#### 🎓 Academic Project & Research Reference")
         
@@ -764,4 +767,5 @@ def dashboard():
         Jon Saad-Falcon, Omar Khattab, Christopher Potts, Matei Zaharia (Stanford University & Databricks) — **NAACL 2024**
         """)
 
-__all__ = ["dashboard", "inject_global_theme"]
+render_chat = dashboard
+__all__ = ["dashboard", "render_chat", "inject_global_theme"]
