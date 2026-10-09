@@ -24,7 +24,7 @@ try:
     from dashboard.upload import upload_page
     from dashboard.dashboard import dashboard
     from dashboard.comparison import comparison_page
-    from dashboard.graph import knowledge_graph_page
+    from dashboard.graph_view import knowledge_graph_page
     from dashboard.settings import settings_page
     from dashboard.memory import memory_page
     from dashboard.history import history_page
