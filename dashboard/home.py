@@ -1,6 +1,13 @@
 ﻿# dashboard/home.py
 import streamlit as st
 
+# Reuse the existing robot image loader (falls back to an emoji if unavailable)
+try:
+    from dashboard.dashboard import get_dashboard_image_b64
+except Exception:
+    def get_dashboard_image_b64():
+        return None
+
 def home_page():
     # ---------------------------------------------------------
     # ---------------------------------------------------------
@@ -130,12 +137,24 @@ def home_page():
     user = st.session_state.get("user", {})
     user_name = user.get("full_name") or user.get("name", "Gayathri")
 
+    # Small robot image shown on the right side of the welcome banner
+    img_b64 = get_dashboard_image_b64()
+    if img_b64:
+        hero_img = f'<img src="data:image/png;base64,{img_b64}" alt="AI Robot" style="width: 140px; height: 140px; object-fit: cover; border-radius: 18px; box-shadow: 0 10px 25px rgba(2, 18, 53, 0.35); border: 1px solid rgba(255, 255, 255, 0.4);" />'
+    else:
+        hero_img = '<div style="font-size: 64px;">🤖</div>'
+
     st.markdown(f"""
-        <div class="hero-banner">
-            <h3 style="margin:0;">{content['welcome']}, {user_name}! 👋</h3>
-            <p style="margin: 0.5rem 0 0 0;">
-                {content['welcome_desc']}
-            </p>
+        <div class="hero-banner" style="display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 260px;">
+                <h3 style="margin:0;">{content['welcome']}, {user_name}! 👋</h3>
+                <p style="margin: 0.5rem 0 0 0;">
+                    {content['welcome_desc']}
+                </p>
+            </div>
+            <div style="flex-shrink: 0; display: flex; justify-content: center; align-items: center;">
+                {hero_img}
+            </div>
         </div>
     """, unsafe_allow_html=True)
 
@@ -275,8 +294,3 @@ def home_page():
                 </p>
             </div>
         """, unsafe_allow_html=True)
-
-
-
-
-
