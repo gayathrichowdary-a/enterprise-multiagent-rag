@@ -1,5 +1,4 @@
 import streamlit as st
-from dashboard.upload import document_sidebar
 from dashboard.chat import chat_sidebar
 
 def render_sidebar(current_page="Home"):
@@ -72,12 +71,7 @@ def render_sidebar(current_page="Home"):
 
         st.markdown("---")
 
-        # 5. Document Management Sidebar
-        document_sidebar()
-
-        st.markdown("---")
-
-        # 6. Multi-Agent RAG Controls Sidebar
+        # 5. Multi-Agent RAG Controls Sidebar
         chat_sidebar()
 
         st.markdown("---")
