@@ -4,19 +4,8 @@ from dashboard.chat import chat_sidebar
 
 def render_sidebar(current_page="Home"):
     """
-    Renders the unified enterprise sidebar in Streamlit:
-    - ENTERPRISE status badge & branding
-    - User profile card
-    - Dark mode toggle & Logout
-    - Navigation Menu (Home, Upload, Chat, Compare, Graph, Settings, Memory, History)
-    - Document Management & Multi-Agent RAG Controls
-    - Bottom Actions / Version footer
+    Renders the unified enterprise sidebar in Streamlit.
     """
-    # Guard against double-rendering in the same script rerun
-    if st.session_state.get("_sidebar_rendered_flag", False):
-        return
-    st.session_state["_sidebar_rendered_flag"] = True
-
     with st.sidebar:
         user_obj = st.session_state.get("user", {})
         user_name = user_obj.get("name") or st.session_state.get("user_name") or st.session_state.get("username") or "Siri"
@@ -61,7 +50,7 @@ def render_sidebar(current_page="Home"):
 
         st.markdown("---")
 
-        # 4. Navigation Menu Bar with full button set
+        # 4. Navigation Menu Bar (All 8 Buttons)
         st.markdown("### 🧭 Navigation Menu")
         nav_items_meta = [
             ("Home", "home", "🏠", "Overview & Metrics"),
