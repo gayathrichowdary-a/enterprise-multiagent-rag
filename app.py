@@ -13,6 +13,7 @@ from dashboard.history import history_page
 from dashboard.settings import settings_page
 from dashboard.graph_view import knowledge_graph_page
 from dashboard.comparison import comparison_page
+
 # ==================================
 # SECURITY CONFIG
 # ==================================
@@ -48,13 +49,10 @@ if "knowledge_sources" not in st.session_state:
 # ==================================
 
 if not st.session_state.logged_in:
-
-    if st.session_state.page == "login":
-        login_page()
-
-    elif st.session_state.page == "signup":
+    if st.session_state.page == "signup":
         signup_page()
-
+    else:
+        login_page()
     st.stop()
 
 # ===========================

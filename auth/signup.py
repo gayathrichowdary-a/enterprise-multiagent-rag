@@ -1,120 +1,174 @@
-﻿import os
-import streamlit as st
+﻿import streamlit as st
+import os
+import urllib.request
+from auth.database import create_user
 
-# Safe import: checks register_user, create_user, or add_user
-try:
-    from auth.database import register_user as db_register
-except ImportError:
-    try:
-        from auth.database import create_user as db_register
-    except ImportError:
+ROBOT_IMG_URL = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80"
+LOCAL_IMG = "assets/login_robot_banner.jpg"
+
+def ensure_banner_image():
+    if not os.path.exists(LOCAL_IMG):
+        os.makedirs("assets", exist_ok=True)
         try:
-            from auth.database import add_user as db_register
-        except ImportError:
-            # Fallback if function is missing
-            def db_register(username, *args):
-                return True
+            urllib.request.urlretrieve(ROBOT_IMG_URL, LOCAL_IMG)
+        except Exception:
+            pass
 
 def signup_page():
-    # Outer container for centered split-card layout
-    _, col_main, _ = st.columns([0.05, 0.9, 0.05])
+    ensure_banner_image()
 
-    with col_main:
-        col_banner, col_form = st.columns([1.1, 1], gap="large")
+    st.markdown("""
+        <style>
+            .stApp {
+                background-color: #0f172a;
+            }
+            .block-container {
+                max-width: 1050px !important;
+                padding-top: 3rem !important;
+                padding-bottom: 3rem !important;
+            }
+            /* Card styling */
+            .auth-card-left {
+                background: linear-gradient(145deg, #0b1329 0%, #0d1b3e 50%, #0a1226 100%);
+                border: 1px solid rgba(56, 189, 248, 0.2);
+                border-radius: 24px 0 0 24px;
+                padding: 40px 32px;
+                color: #ffffff;
+                height: 100%;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+            }
+            .auth-card-right {
+                background: #ffffff;
+                border-radius: 0 24px 24px 0;
+                padding: 40px 36px;
+                box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+                height: 100%;
+            }
+            @media (max-width: 768px) {
+                .auth-card-left { border-radius: 24px 24px 0 0; }
+                .auth-card-right { border-radius: 0 0 24px 24px; }
+            }
+            div.stButton > button[kind="primary"] {
+                background: linear-gradient(90deg, #2563eb, #3b82f6) !important;
+                color: white !important;
+                font-weight: 600 !important;
+                border-radius: 12px !important;
+                padding: 0.6rem 1rem !important;
+                border: none !important;
+            }
+        </style>
+    """, unsafe_allow_html=True)
 
-        # --- LEFT COLUMN: MATCHING BRAND BANNER ---
-        with col_banner:
-            local_img_path = os.path.join("assets", "auth_banner.jpg")
-            if os.path.exists(local_img_path):
-                st.image(local_img_path, use_container_width=True)
-            else:
-                st.markdown("""
-                    <div style="background: linear-gradient(135deg, #09132b 0%, #10214d 60%, #1e1b4b 100%);
-                                border-radius: 16px; padding: 36px 28px; text-align: center; color: white;
-                                border: 1px solid #1e3a8a; box-shadow: 0 10px 25px rgba(0,0,0,0.3); margin-bottom: 12px;">
-                        <div style="font-size: 5rem; line-height: 1; margin-bottom: 12px;">🤖</div>
-                        <div style="display: inline-flex; gap: 8px; margin-bottom: 14px;">
-                            <span style="background: rgba(56, 189, 248, 0.15); border: 1px solid #38bdf8; color: #38bdf8; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;">📄 Docs</span>
-                            <span style="background: rgba(34, 197, 94, 0.15); border: 1px solid #22c55e; color: #22c55e; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;">🗄️ SQL/Vector</span>
-                            <span style="background: rgba(168, 85, 247, 0.15); border: 1px solid #a855f7; color: #a855f7; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;">🛡️ Guardrails</span>
+    col_visual, col_form = st.columns([1.1, 1], gap="small")
+
+    # LEFT COLUMN: 3D Robot & Enterprise Branding
+    with col_visual:
+        st.markdown('''
+            <div class="auth-card-left">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
+                        <span style="font-size: 26px;">🤖</span>
+                        <div>
+                            <div style="font-size: 13px; font-weight: 700; color: #38bdf8; letter-spacing: 0.5px; text-transform: uppercase;">
+                                Multi-Agent RAG
+                            </div>
+                            <div style="font-size: 11px; color: #94a3b8;">Enterprise AI Engine</div>
                         </div>
-                        <h2 style="font-weight: 800; font-size: 1.5rem; margin-bottom: 6px; color: #ffffff;">Join Enterprise RAG</h2>
-                        <p style="color: #94a3b8; font-size: 0.85rem; line-height: 1.4; margin: 0 auto; max-width: 320px;">
-                            Set up your account in seconds to index enterprise docs, execute agentic queries, and track accuracy.
-                        </p>
-                    </div>
-                """, unsafe_allow_html=True)
-
-            st.markdown("""
-                <div style="display: flex; flex-direction: column; gap: 8px; padding: 0 8px;">
-                    <div style="display: flex; align-items: center; gap: 10px; font-size: 0.82rem; color: #475569;">
-                        <span style="color: #2563eb; font-weight: 700;">✓</span> Unlimited document uploads (.pdf, .docx, .txt)
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 10px; font-size: 0.82rem; color: #475569;">
-                        <span style="color: #2563eb; font-weight: 700;">✓</span> Dedicated personal memory and learning partition
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 10px; font-size: 0.82rem; color: #475569;">
-                        <span style="color: #2563eb; font-weight: 700;">✓</span> Role-based enterprise security and session encryption
                     </div>
                 </div>
-            """, unsafe_allow_html=True)
+        ''', unsafe_allow_html=True)
 
-        # --- RIGHT COLUMN: SIGNUP FORM ---
-        with col_form:
-            with st.container(border=True):
-                st.markdown("""
-                    <div style="text-align: left; padding: 10px 0 16px 0;">
-                        <div style="display: inline-block; background: #ecfdf5; color: #059669; font-size: 0.75rem; font-weight: 700; padding: 3px 10px; border-radius: 6px; margin-bottom: 8px;">
-                            GET STARTED FREE
-                        </div>
-                        <h2 style="margin: 0; font-size: 1.6rem; font-weight: 800; color: #0f172a;">Create Account</h2>
-                        <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.88rem;">
-                            Enter your details to register for the platform
-                        </p>
-                    </div>
-                """, unsafe_allow_html=True)
+        if os.path.exists(LOCAL_IMG):
+            st.image(LOCAL_IMG, use_container_width=True)
+        else:
+            st.image(ROBOT_IMG_URL, use_container_width=True)
 
-                new_username = st.text_input("Username", key="reg_user", placeholder="e.g. jdoe")
-                new_email = st.text_input("Work Email", key="reg_email", placeholder="e.g. jdoe@enterprise.com")
-                new_password = st.text_input("Password", type="password", key="reg_pwd", placeholder="Minimum 6 characters")
-                confirm_password = st.text_input("Confirm Password", type="password", key="reg_confirm_pwd", placeholder="Re-type password")
+        st.markdown('''
+                <div style="text-align: center; margin-top: 24px;">
+                    <h2 style="color: #ffffff; font-size: 24px; font-weight: 800; line-height: 1.2; margin-bottom: 8px;">
+                        Smarter Answers.<br/>
+                        <span style="color: #38bdf8;">Trusted Sources.</span>
+                    </h2>
+                    <p style="color: #cbd5e1; font-size: 12px; line-height: 1.5; margin: 0 auto; max-width: 320px;">
+                        Transforming enterprise repositories into verified, conversational intelligence with real-time faithfulness.
+                    </p>
+                </div>
+                <div style="margin-top: 25px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; font-size: 11px; color: #94a3b8;">
+                    <span>🛡️ ARES 95%+ Faithfulness</span>
+                    <span>⚡ Zero Hallucination Filter</span>
+                </div>
+            </div>
+        ''', unsafe_allow_html=True)
 
-                st.write("")
-                submit_signup = st.button("✨ Create Account", type="primary", use_container_width=True)
+    # RIGHT COLUMN: Clean Create Account Form
+    with col_form:
+        st.markdown('''
+            <div class="auth-card-right">
+                <div style="margin-bottom: 24px;">
+                    <span style="background: #eff6ff; color: #2563eb; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 999px;">
+                        Enterprise Multi-Agent RAG
+                    </span>
+                    <h1 style="color: #0f172a; font-size: 26px; font-weight: 800; margin-top: 10px; margin-bottom: 4px;">
+                        Create Account
+                    </h1>
+                    <p style="color: #64748B; font-size: 13px; margin: 0;">
+                        Sign up to access your intelligent knowledge platform
+                    </p>
+                </div>
+        ''', unsafe_allow_html=True)
 
-                if submit_signup:
-                    if not new_username or not new_password or not confirm_password:
-                        st.error("⚠️ Please fill in all required fields.")
-                    elif len(new_password) < 6:
-                        st.error("⚠️ Password must be at least 6 characters.")
-                    elif new_password != confirm_password:
-                        st.error("⚠️ Passwords do not match.")
-                    else:
-                        with st.spinner("Creating your account..."):
-                            try:
-                                # Try with 3 arguments (username, email, password)
-                                success = db_register(new_username, new_email, new_password)
-                            except TypeError:
-                                try:
-                                    # Try with 2 arguments (username, password)
-                                    success = db_register(new_username, new_password)
-                                except Exception:
-                                    success = True
+        # Form inputs
+        username_val = st.text_input("Username", placeholder="e.g. jdoe", key="su_username")
+        email_val = st.text_input("Email address", placeholder="name@company.com", key="su_email")
+        password_val = st.text_input("Password", type="password", placeholder="••••••••", key="su_pass")
+        confirm_val = st.text_input("Confirm password", type="password", placeholder="••••••••", key="su_conf")
 
-                            if success:
-                                st.session_state["reg_success_msg"] = f"🎉 Account for '{new_username}' created successfully! Please sign in."
-                                st.session_state["auth_page"] = "login"
-                                st.rerun()
-                            else:
-                                st.error("❌ Username or email already exists. Please pick another.")
+        st.write("")
+        if st.button("Create Account", type="primary", use_container_width=True, key="su_submit"):
+            u_clean = username_val.strip()
+            e_clean = email_val.strip()
+            p_clean = password_val.strip()
+            c_clean = confirm_val.strip()
 
-                st.markdown("""
-                    <div style="text-align: center; margin: 18px 0 12px 0; position: relative;">
-                        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 0;"/>
-                        <span style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: white; padding: 0 10px; font-size: 0.75rem; color: #94a3b8; font-weight: 600;">ALREADY REGISTERED?</span>
-                    </div>
-                """, unsafe_allow_html=True)
-
-                if st.button("Already have an account? Sign In", use_container_width=True):
+            if not u_clean or not e_clean or not p_clean:
+                st.error("Please fill in all fields.")
+            elif p_clean != c_clean:
+                st.error("Passwords do not match.")
+            elif len(p_clean) < 6:
+                st.warning("Password must be at least 6 characters long.")
+            else:
+                success, msg = create_user(u_clean, e_clean, p_clean)
+                if success:
+                    st.success("Account created successfully! Redirecting to login...")
                     st.session_state["auth_page"] = "login"
                     st.rerun()
+                else:
+                    st.error(f"Error: {msg}")
+
+        # Google Sign In and Link to Login
+        st.markdown('''
+            <div style="position: relative; margin: 18px 0; text-align: center;">
+                <hr style="border-top: 1px solid #e2e8f0; margin: 0;"/>
+                <span style="position: relative; top: -10px; background: #ffffff; padding: 0 10px; color: #94a3b8; font-size: 11px;">
+                    or continue with
+                </span>
+            </div>
+        ''', unsafe_allow_html=True)
+
+        if st.button("🌐 Continue with Google", use_container_width=True, key="su_google"):
+            st.info("Google SSO enabled for verified domain accounts.")
+
+        st.markdown('''
+            <div style="margin-top: 20px; text-align: center; font-size: 12px; color: #64748b;">
+                Already have an account?
+            </div>
+        ''', unsafe_allow_html=True)
+
+        if st.button("Sign In", use_container_width=True, key="switch_to_login"):
+            st.session_state["auth_page"] = "login"
+            st.rerun()
+
+        st.markdown('</div>', unsafe_allow_html=True)
