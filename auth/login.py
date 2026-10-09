@@ -1,118 +1,99 @@
 ﻿import os
 import streamlit as st
-from auth.database import verify_user
+from auth.database import verify_user, create_user
 
-# High-resolution AI Assistant banner fallback URL
-BANNER_URL = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1200&auto=format&fit=crop"
+BANNER_URL = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80"
 
 def login_page():
-    # Outer container for centered split-card layout
-    _, col_main, _ = st.columns([0.05, 0.9, 0.05])
-    
-    with col_main:
-        # Card wrapper
-        col_banner, col_form = st.columns([1.1, 1], gap="large")
+    _, col_center, _ = st.columns([0.05, 0.9, 0.05])
 
-        # --- LEFT COLUMN: AI ROBOT BANNER ---
+    with col_center:
+        col_banner, col_form = st.columns([1, 1], gap="medium")
+
+        # --- LEFT: ROBOT BANNER ---
         with col_banner:
-            # Check for local image first, then fallback to high-tech banner
-            local_img_path = os.path.join("assets", "auth_banner.jpg")
-            if os.path.exists(local_img_path):
-                st.image(local_img_path, use_container_width=True)
+            local_banner = os.path.join("assets", "auth_banner.jpg")
+            if os.path.exists(local_banner):
+                st.image(local_banner, use_container_width=True)
             else:
-                st.markdown("""
-                    <div style="background: linear-gradient(135deg, #09132b 0%, #10214d 60%, #1e1b4b 100%);
-                                border-radius: 16px; padding: 36px 28px; text-align: center; color: white;
-                                border: 1px solid #1e3a8a; box-shadow: 0 10px 25px rgba(0,0,0,0.3); margin-bottom: 12px;">
-                        <div style="font-size: 5rem; line-height: 1; margin-bottom: 12px;">🤖</div>
-                        <div style="display: inline-flex; gap: 8px; margin-bottom: 14px;">
-                            <span style="background: rgba(56, 189, 248, 0.15); border: 1px solid #38bdf8; color: #38bdf8; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;">📄 Docs</span>
-                            <span style="background: rgba(34, 197, 94, 0.15); border: 1px solid #22c55e; color: #22c55e; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;">🗄️ SQL/Vector</span>
-                            <span style="background: rgba(168, 85, 247, 0.15); border: 1px solid #a855f7; color: #a855f7; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;">🛡️ Guardrails</span>
-                        </div>
-                        <h2 style="font-weight: 800; font-size: 1.5rem; margin-bottom: 6px; color: #ffffff;">Smarter Answers.<br/>Trusted Sources.</h2>
-                        <p style="color: #94a3b8; font-size: 0.85rem; line-height: 1.4; margin: 0 auto; max-width: 320px;">
-                            AI-powered multi-agent RAG for enterprise knowledge management and reliable grounded reasoning.
-                        </p>
-                    </div>
-                """, unsafe_allow_html=True)
+                st.image(BANNER_URL, use_container_width=True)
 
-            # Feature points beneath the banner
             st.markdown("""
-                <div style="display: flex; flex-direction: column; gap: 8px; padding: 0 8px;">
-                    <div style="display: flex; align-items: center; gap: 10px; font-size: 0.82rem; color: #475569;">
-                        <span style="color: #2563eb; font-weight: 700;">✓</span> 8-Node LangGraph self-correcting agent workflow
+                <div style="background: #0f172a; padding: 18px; border-radius: 12px; border: 1px solid #1e293b; margin-top: 10px;">
+                    <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+                        <span style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; padding: 3px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">📄 Docs</span>
+                        <span style="background: rgba(34, 197, 94, 0.2); color: #22c55e; padding: 3px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">🗄️ SQL/Vector</span>
+                        <span style="background: rgba(168, 85, 247, 0.2); color: #a855f7; padding: 3px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">🛡️ Guardrails</span>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 10px; font-size: 0.82rem; color: #475569;">
-                        <span style="color: #2563eb; font-weight: 700;">✓</span> Real-time Faithfulness and Grounded citations
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 10px; font-size: 0.82rem; color: #475569;">
-                        <span style="color: #2563eb; font-weight: 700;">✓</span> Persistent vector memory and query tracking
-                    </div>
+                    <h3 style="color: white; margin: 0 0 6px 0; font-size: 1.15rem; font-weight: 700;">Smarter Answers. Trusted Sources.</h3>
+                    <p style="color: #94a3b8; font-size: 0.8rem; margin: 0;">AI-powered multi-agent RAG for enterprise knowledge management and reliable grounded reasoning.</p>
+                </div>
+                <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 6px; font-size: 0.82rem; color: #64748b;">
+                    <div>✓ 8-Node LangGraph self-correcting agent workflow</div>
+                    <div>✓ Real-time Faithfulness and Grounded citations</div>
+                    <div>✓ Persistent vector memory and query tracking</div>
                 </div>
             """, unsafe_allow_html=True)
 
-        # --- RIGHT COLUMN: LOGIN FORM ---
+        # --- RIGHT: SIGN IN & CREATE ACCOUNT ---
         with col_form:
-            # Registration success toast notification
-            if st.session_state.get("reg_success_msg"):
-                st.success(st.session_state.pop("reg_success_msg"))
-
             with st.container(border=True):
-                # Header branding
                 st.markdown("""
-                    <div style="text-align: left; padding: 10px 0 16px 0;">
-                        <div style="display: inline-block; background: #eff6ff; color: #2563eb; font-size: 0.75rem; font-weight: 700; padding: 3px 10px; border-radius: 6px; margin-bottom: 8px;">
-                            ENTERPRISE PORTAL
-                        </div>
-                        <h2 style="margin: 0; font-size: 1.6rem; font-weight: 800; color: #0f172a;">Sign In</h2>
-                        <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.88rem;">
-                            Log in to access your intelligent knowledge platform
-                        </p>
+                    <div style="display: inline-block; background: #eff6ff; color: #2563eb; font-size: 0.75rem; font-weight: 700; padding: 3px 10px; border-radius: 6px; margin-bottom: 8px;">
+                        ENTERPRISE PORTAL
                     </div>
                 """, unsafe_allow_html=True)
 
-                # Form input fields
-                username_input = st.text_input(
-                    "Username or Email",
-                    key="login_identity",
-                    placeholder="Enter your username or email"
-                )
-                password_input = st.text_input(
-                    "Password",
-                    type="password",
-                    key="login_secret",
-                    placeholder="Enter your password"
-                )
+                tab_signin, tab_signup = st.tabs(["🔑 Sign In", "✨ Create Account"])
 
-                st.write("")
-                login_btn = st.button("🚀 Sign In", type="primary", use_container_width=True)
+                # --- 1. SIGN IN ---
+                with tab_signin:
+                    st.markdown("<h3 style='margin-bottom: 4px; color: #1e293b;'>Sign In</h3>", unsafe_allow_html=True)
+                    st.caption("Log in to access your intelligent knowledge platform")
 
-                if login_btn:
-                    if not username_input or not password_input:
-                        st.error("⚠️ Please provide both username/email and password.")
-                    else:
-                        with st.spinner("Authenticating credentials..."):
-                            user_data = verify_user(username_input, password_input)
-                            if user_data:
-                                # Save user object to session state
-                                st.session_state["user"] = user_data
+                    login_user = st.text_input("Username or Email", key="auth_signin_user", placeholder="Enter username or email")
+                    login_pwd = st.text_input("Password", type="password", key="auth_signin_pwd", placeholder="Enter password")
+
+                    st.write("")
+                    if st.button("🚀 Sign In", type="primary", use_container_width=True, key="btn_signin"):
+                        if not login_user or not login_pwd:
+                            st.warning("⚠️ Please provide username/email and password.")
+                        else:
+                            # verify_user returns: (is_valid: bool, username: str or None)
+                            is_valid, user_name = verify_user(login_user, login_pwd)
+                            
+                            if is_valid:
                                 st.session_state["logged_in"] = True
-                                st.session_state["user_id"] = user_data.get("id", 1) if isinstance(user_data, dict) else 1
-                                st.session_state["username"] = user_data.get("username", username_input) if isinstance(user_data, dict) else username_input
-                                st.success("Authentication successful! Redirecting...")
+                                st.session_state["user"] = {"username": user_name, "id": 1}
+                                st.session_state["username"] = user_name
+                                st.success(f"Welcome back, {user_name}! Loading...")
                                 st.rerun()
                             else:
-                                st.error("❌ Invalid username/email or password. Please try again.")
+                                st.error("❌ Invalid username/email or password. If you don't have an account, click the 'Create Account' tab.")
 
-                # Divider & Switch to Signup
-                st.markdown("""
-                    <div style="text-align: center; margin: 18px 0 12px 0; position: relative;">
-                        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 0;"/>
-                        <span style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: white; padding: 0 10px; font-size: 0.75rem; color: #94a3b8; font-weight: 600;">OR</span>
-                    </div>
-                """, unsafe_allow_html=True)
+                # --- 2. CREATE ACCOUNT ---
+                with tab_signup:
+                    st.markdown("<h3 style='margin-bottom: 4px; color: #1e293b;'>Create Account</h3>", unsafe_allow_html=True)
+                    st.caption("Register a new account on the enterprise platform")
 
-                if st.button("Create New Account", use_container_width=True):
-                    st.session_state["auth_page"] = "signup"
-                    st.rerun()
+                    reg_user = st.text_input("Username", key="auth_reg_user", placeholder="e.g. jdoe")
+                    reg_email = st.text_input("Work Email", key="auth_reg_email", placeholder="e.g. jdoe@enterprise.com")
+                    reg_pwd = st.text_input("Password", type="password", key="auth_reg_pwd", placeholder="Minimum 6 characters")
+                    reg_pwd_confirm = st.text_input("Confirm Password", type="password", key="auth_reg_confirm", placeholder="Re-type password")
+
+                    st.write("")
+                    if st.button("✨ Register Account", type="primary", use_container_width=True, key="btn_signup"):
+                        if not reg_user or not reg_email or not reg_pwd:
+                            st.warning("⚠️ All fields are required.")
+                        elif reg_pwd != reg_pwd_confirm:
+                            st.error("❌ Passwords do not match!")
+                        elif len(reg_pwd) < 4:
+                            st.error("❌ Password must be at least 4 characters.")
+                        else:
+                            # create_user returns: (is_created: bool, message: str)
+                            is_created, msg = create_user(reg_user, reg_email, reg_pwd)
+                            
+                            if is_created:
+                                st.success(f"🎉 {msg} Please switch to the 'Sign In' tab to log in.")
+                            else:
+                                st.error(f"❌ {msg}")
