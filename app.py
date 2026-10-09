@@ -19,7 +19,7 @@ st.set_page_config(
 
 # Imports (wrapped so the real error is shown instead of the redacted one)
 try:
-    from dashboard import render_sidebar
+    from dashboard.nav import render_sidebar
     from dashboard.home import home_page
     from dashboard.upload import upload_page
     from dashboard.dashboard import dashboard
