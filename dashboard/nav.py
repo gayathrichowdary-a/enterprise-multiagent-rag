@@ -4,21 +4,19 @@ from dashboard.chat import chat_sidebar
 
 def render_sidebar(current_page="Home"):
     """
-    Renders the unified enterprise sidebar matching the user's complete navigation structure:
-    - ENTERPRISE status badge & Adaptive Multi-Agent RAG branding
-    - User Profile Card with User Name, Email, and college badge
+    Renders the unified enterprise sidebar in Streamlit:
+    - ENTERPRISE status badge & branding
+    - User profile card
     - Dark mode toggle & Logout
-    - Navigation Buttons/Menu:
-        1. Home
-        2. Upload Documents
-        3. Chat
-        4. Compare Documents
-        5. Knowledge Graph
-        6. Settings
-        7. Memory
-        8. History
+    - Navigation Menu (Home, Upload, Chat, Compare, Graph, Settings, Memory, History)
     - Document Management & Multi-Agent RAG Controls
+    - Bottom Actions / Version footer
     """
+    # Guard against double-rendering in the same script rerun
+    if st.session_state.get("_sidebar_rendered_flag", False):
+        return
+    st.session_state["_sidebar_rendered_flag"] = True
+
     with st.sidebar:
         user_obj = st.session_state.get("user", {})
         user_name = user_obj.get("name") or st.session_state.get("user_name") or st.session_state.get("username") or "Siri"
@@ -63,48 +61,31 @@ def render_sidebar(current_page="Home"):
 
         st.markdown("---")
 
-        # 4. Navigation Menu Bar with full button set requested by user
-        st.markdown("### 🧭 Navigation")
-        nav_options = [
-            "Home",
-            "Upload Documents",
-            "Chat",
-            "Compare Documents",
-            "Knowledge Graph",
-            "Settings",
-            "Memory",
-            "History"
+        # 4. Navigation Menu Bar with full button set
+        st.markdown("### 🧭 Navigation Menu")
+        nav_items_meta = [
+            ("Home", "home", "🏠", "Overview & Metrics"),
+            ("Upload Documents", "upload", "📁", "Ingest & Vectorize"),
+            ("Chat", "chat", "💬", "Multi-Agent Console"),
+            ("Compare Documents", "compare", "⚖️", "Corpus Diff & Benchmarks"),
+            ("Knowledge Graph", "graph", "🕸️", "Entity-Relation Graph"),
+            ("Settings", "settings", "⚙️", "Agent & Model Configs"),
+            ("Memory", "memory", "🧠", "Episodic Working Buffer"),
+            ("History", "history", "📜", "Execution Traces & Audit")
         ]
 
-        # Ensure nav_selection state is valid
-        if "nav_selection" not in st.session_state or st.session_state["nav_selection"] not in nav_options:
-            st.session_state["nav_selection"] = current_page if current_page in nav_options else "Home"
+        current_active = st.session_state.get("page", "home").lower()
+        if current_active in ("dashboard",):
+            current_active = "chat"
 
-        current_nav_index = nav_options.index(st.session_state["nav_selection"]) if st.session_state["nav_selection"] in nav_options else 0
-
-        selected_nav = st.radio(
-            "Navigation Menu",
-            nav_options,
-            index=current_nav_index,
-            key="radio_nav_menu",
-            label_visibility="collapsed"
-        )
-
-        if selected_nav != st.session_state["nav_selection"]:
-            st.session_state["nav_selection"] = selected_nav
-            # Synchronize page router key
-            page_map = {
-                "Home": "home",
-                "Upload Documents": "upload",
-                "Chat": "dashboard",
-                "Compare Documents": "compare",
-                "Knowledge Graph": "graph",
-                "Settings": "settings",
-                "Memory": "memory",
-                "History": "history"
-            }
-            st.session_state["page"] = page_map.get(selected_nav, "dashboard")
-            st.rerun()
+        for label, page_key, icon, desc in nav_items_meta:
+            is_active = (current_active == page_key)
+            btn_label = f"{icon} {label}" + ("  ◀" if is_active else "")
+            btn_type = "primary" if is_active else "secondary"
+            if st.button(btn_label, key=f"sb_nav_btn_{page_key}", type=btn_type, use_container_width=True, help=desc):
+                st.session_state["page"] = page_key
+                st.session_state["nav_selection"] = label
+                st.rerun()
 
         st.markdown("---")
 
@@ -115,5 +96,9 @@ def render_sidebar(current_page="Home"):
 
         # 6. Multi-Agent RAG Controls Sidebar
         chat_sidebar()
+
+        # 7. Bottom Actions (Dark Mode info & Version)
+        st.markdown("---")
+        st.caption("🌓 v2.4 Enterprise RAG • Online")
 
 __all__ = ["render_sidebar"]
