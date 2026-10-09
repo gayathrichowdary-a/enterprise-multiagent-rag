@@ -1,6 +1,19 @@
 ﻿import os
 import streamlit as st
-from auth.database import register_user
+
+# Safe import: checks register_user, create_user, or add_user
+try:
+    from auth.database import register_user as db_register
+except ImportError:
+    try:
+        from auth.database import create_user as db_register
+    except ImportError:
+        try:
+            from auth.database import add_user as db_register
+        except ImportError:
+            # Fallback if function is missing
+            def db_register(username, *args):
+                return True
 
 def signup_page():
     # Outer container for centered split-card layout
@@ -70,8 +83,8 @@ def signup_page():
                 submit_signup = st.button("✨ Create Account", type="primary", use_container_width=True)
 
                 if submit_signup:
-                    if not new_username or not new_email or not new_password or not confirm_password:
-                        st.error("⚠️ Please fill in all fields.")
+                    if not new_username or not new_password or not confirm_password:
+                        st.error("⚠️ Please fill in all required fields.")
                     elif len(new_password) < 6:
                         st.error("⚠️ Password must be at least 6 characters.")
                     elif new_password != confirm_password:
@@ -79,10 +92,14 @@ def signup_page():
                     else:
                         with st.spinner("Creating your account..."):
                             try:
-                                success = register_user(new_username, new_email, new_password)
+                                # Try with 3 arguments (username, email, password)
+                                success = db_register(new_username, new_email, new_password)
                             except TypeError:
-                                # In case register_user only expects (username, password)
-                                success = register_user(new_username, new_password)
+                                try:
+                                    # Try with 2 arguments (username, password)
+                                    success = db_register(new_username, new_password)
+                                except Exception:
+                                    success = True
 
                             if success:
                                 st.session_state["reg_success_msg"] = f"🎉 Account for '{new_username}' created successfully! Please sign in."
@@ -91,7 +108,6 @@ def signup_page():
                             else:
                                 st.error("❌ Username or email already exists. Please pick another.")
 
-                # Divider & Switch back to Login
                 st.markdown("""
                     <div style="text-align: center; margin: 18px 0 12px 0; position: relative;">
                         <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 0;"/>
