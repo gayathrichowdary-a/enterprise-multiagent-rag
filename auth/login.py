@@ -4,19 +4,20 @@ import streamlit as st
 from auth.database import verify_user
 
 def get_login_image_b64():
-    """Prioritizes your local assets folder image."""
-    possible_paths = [
+    # Base directory relative to this file
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    
+    candidate_paths = [
+        os.path.join(base_dir, "assets", "login_robot.png"),
+        os.path.join(base_dir, "assets", "login_robot.jpg"),
+        os.path.join(base_dir, "assets", "image.png"),
+        os.path.join(base_dir, "assets", "login.png"),
+        os.path.join(base_dir, "assets", "login.jpg"),
+        os.path.join(base_dir, "assets", "robot.png"),
         "assets/login_robot.png",
-        "assets/login_robot.jpg",
         "assets/image.png",
-        "assets/login.png",
-        "assets/login.jpg",
-        "assets/robot.png",
-        "assets/robot.jpg",
-        "login_robot.png",
-        "login_robot.jpg",
     ]
-    for p in possible_paths:
+    for p in candidate_paths:
         if os.path.exists(p):
             try:
                 with open(p, "rb") as f:
