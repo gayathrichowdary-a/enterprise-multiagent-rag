@@ -23,7 +23,7 @@ try:
     from dashboard.home import home_page
     from dashboard.upload import upload_page
     from dashboard.dashboard import dashboard
-    from dashboard.compare import compare_page
+    from dashboard.comparison import comparison_page
     from dashboard.graph import knowledge_graph_page
     from dashboard.settings import settings_page
     from dashboard.memory import memory_page
@@ -56,7 +56,7 @@ elif current_page == "upload":
 elif current_page in ("chat", "dashboard"):
     dashboard()
 elif current_page == "compare":
-    compare_page()
+    comparison_page()
 elif current_page == "graph":
     knowledge_graph_page()
 elif current_page == "settings":
