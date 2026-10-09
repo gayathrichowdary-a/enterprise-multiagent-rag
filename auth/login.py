@@ -1,159 +1,174 @@
-﻿import streamlit as st
+﻿import os
 import base64
-import os
+import streamlit as st
 from auth.database import verify_user
 
-def get_image_base64(filepath):
-    if os.path.exists(filepath):
-        with open(filepath, "rb") as f:
-            return base64.b64encode(f.read()).decode("utf-8")
+# Try importing pre-packaged base64 if available
+try:
+    from auth.images_b64 import LOGIN_ROBOT_B64
+except Exception:
+    LOGIN_ROBOT_B64 = ""
+
+def get_login_image_b64():
+    """Returns base64 encoded string so broken image icons never appear."""
+    if LOGIN_ROBOT_B64:
+        return LOGIN_ROBOT_B64
+    
+    # Check local filesystem paths
+    for p in ["assets/login_robot.jpg", "login_robot.jpg", "assets/login_robot_thumb.jpg"]:
+        if os.path.exists(p):
+            try:
+                with open(p, "rb") as f:
+                    return base64.b64encode(f.read()).decode("utf-8")
+            except Exception:
+                pass
     return ""
 
 def login_page():
-    # Hide Streamlit default chrome & style widgets
+    # Enterprise styling matching Image 2
     st.markdown("""
         <style>
-        [data-testid="stSidebar"] { display: none; }
         .block-container {
-            max-width: 1080px !important;
             padding-top: 2rem !important;
             padding-bottom: 2rem !important;
+            max-width: 1050px !important;
         }
-        div.stButton > button:first-child {
-            background-color: #2563EB;
-            color: white;
-            font-weight: 600;
-            border-radius: 8px;
-            padding: 0.6rem 1rem;
-            border: none;
-            width: 100%;
-            transition: all 0.2s;
+        div[data-testid="stToolbar"] {
+            visibility: hidden;
+            height: 0%;
+            position: fixed;
         }
-        div.stButton > button:first-child:hover {
-            background-color: #1D4ED8;
-            color: white;
-            border: none;
+        .stTextInput > div > div > input {
+            border-radius: 8px !important;
+            border: 1px solid #E2E8F0 !important;
+            padding: 10px 14px !important;
+            font-size: 14px !important;
         }
-        .secondary-btn button {
-            background-color: #FFFFFF !important;
-            color: #334155 !important;
-            border: 1px solid #CBD5E1 !important;
-            font-weight: 500 !important;
+        .stTextInput > div > div > input:focus {
+            border-color: #2563EB !important;
+            box-shadow: 0 0 0 1px #2563EB !important;
         }
-        .secondary-btn button:hover {
-            background-color: #F8FAFC !important;
-            color: #0F172A !important;
-            border-color: #94A3B8 !important;
-        }
-        .link-btn button {
-            background: none !important;
-            border: none !important;
-            color: #2563EB !important;
+        .stButton > button {
+            border-radius: 8px !important;
             font-weight: 600 !important;
-            padding: 0 !important;
-            display: inline !important;
-            width: auto !important;
-            text-decoration: underline;
+            padding: 0.6rem 1rem !important;
+            font-size: 15px !important;
         }
         </style>
     """, unsafe_allow_html=True)
 
-    img_b64 = get_image_base64("assets/login_robot.jpg")
-    img_tag = f'<img src="data:image/jpeg;base64,{img_b64}" style="width: 100%; border-radius: 14px; box-shadow: 0 12px 30px rgba(0,0,0,0.35);">' if img_b64 else '<img src="https://ais-dev-ju234xxwta5uivor2mhblf-88157110275.asia-southeast1.run.app/login_robot.jpg" style="width: 100%; border-radius: 14px; box-shadow: 0 12px 30px rgba(0,0,0,0.35);">'
+    img_b64 = get_login_image_b64()
 
+    # 2 equal columns: Left dark blue showcase card, Right sign-in card
     col_left, col_right = st.columns([1, 1], gap="large")
 
-    # ================= LEFT DARK BLUE CARD =================
     with col_left:
+        # Left Deep Navy Card (#031B4E) matching reference design
+        if img_b64:
+            img_html = f'<img src="data:image/jpeg;base64,{img_b64}" style="width: 100%; max-height: 380px; object-fit: contain; border-radius: 16px; margin-bottom: 24px; display: block;" alt="AI Assistant with Laptop" />'
+        else:
+            img_html = '<div style="height: 320px; display: flex; align-items: center; justify-content: center; font-size: 72px;">🤖</div>'
+
         st.markdown(f"""
-            <div style="background-color: #031B4E; border-radius: 20px; padding: 36px 32px; height: 100%; display: flex; flex-direction: column; justify-content: space-between; border: 1px solid rgba(59,130,246,0.25);">
-                <div style="text-align: center; margin-bottom: 24px;">
-                    {img_tag}
-                </div>
+            <div style="background: linear-gradient(180deg, #021235 0%, #031B4E 50%, #06286E 100%);
+                        border-radius: 24px; padding: 32px 28px; color: #FFFFFF;
+                        box-shadow: 0 20px 40px -15px rgba(2, 18, 53, 0.4); border: 1px solid rgba(255, 255, 255, 0.1);
+                        min-height: 580px; display: flex; flex-direction: column; justify-content: space-between;">
                 <div>
-                    <h2 style="color: #FFFFFF; font-size: 26px; font-weight: 800; line-height: 1.25; margin: 0 0 8px 0;">
-                        Smarter Answers.<br>
-                        <span style="color: #60A5FA;">Trusted Sources.</span>
+                    {img_html}
+                    <h2 style="color: #FFFFFF; font-size: 24px; font-weight: 700; margin: 0 0 8px 0; line-height: 1.3;">
+                        Smarter Answers, <span style="color: #38BDF8;">Faster Insights</span>
                     </h2>
-                    <p style="color: #93C5FD; font-size: 13.5px; line-height: 1.45; margin: 0;">
-                        AI-powered multi-agent RAG for enterprise knowledge management.
+                    <p style="color: #94A3B8; font-size: 14px; margin: 0 0 16px 0; font-weight: 400;">
+                        Enterprise Hybrid RAG Platform
                     </p>
                 </div>
-            </div>
-        """, unsafe_allow_html=True)
-
-    # ================= RIGHT WHITE CARD =================
-    with col_right:
-        st.markdown("""
-            <div style="padding: 10px 10px 0 10px;">
-                <div style="display: flex; items-center; gap: 10px; margin-bottom: 4px;">
-                    <span style="font-size: 28px;">🧠</span>
-                    <span style="font-size: 24px; font-weight: 700; color: #0F172A; line-height: 34px;">Enterprise RAG</span>
+                <div style="padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, 0.12); display: flex; gap: 8px; flex-wrap: wrap; font-size: 12px; color: #7DD3FC;">
+                    <span>• Agentic Retrieval</span>
+                    <span>• Reranking</span>
+                    <span>• Multi-Vector Search</span>
                 </div>
-                <p style="color: #64748B; font-size: 14px; margin: 0 0 20px 0;">
-                    Login to access your enterprise knowledge and get trusted answers.
-                </p>
             </div>
         """, unsafe_allow_html=True)
 
-        if st.session_state.get("reg_success"):
-            st.success(st.session_state.pop("reg_success"))
+    with col_right:
+        # Right Sign-in Form
+        st.markdown("""
+            <div style="margin-bottom: 20px;">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                    <div style="background: #2563EB; width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-size: 18px; font-weight: bold; box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);">
+                        ⚡
+                    </div>
+                    <div>
+                        <div style="font-weight: 800; font-size: 18px; color: #0F172A; line-height: 1.1;">Enterprise RAG</div>
+                        <div style="font-size: 11px; color: #64748B;">Adaptive Intelligence Knowledge Platform</div>
+                    </div>
+                </div>
+                <h1 style="font-size: 28px; font-weight: 800; color: #0F172A; margin: 12px 0 4px 0;">Welcome back</h1>
+                <p style="font-size: 14px; color: #64748B; margin: 0;">Enter your credentials to access your enterprise workspace</p>
+            </div>
+        """, unsafe_allow_html=True)
 
-        email_input = st.text_input("Email address", placeholder="Email address", key="login_email", label_visibility="collapsed")
-        pass_input = st.text_input("Password", type="password", placeholder="Password", key="login_password", label_visibility="collapsed")
+        if st.session_state.get("reg_success_msg"):
+            st.success(st.session_state.pop("reg_success_msg"))
 
-        # Remember me / Forgot password row
-        opt_col1, opt_col2 = st.columns([1, 1])
-        with opt_col1:
-            remember_me = st.checkbox("Remember me", value=True)
-        with opt_col2:
-            st.markdown('<div style="text-align: right; padding-top: 5px;"><a href="#" style="color: #2563EB; font-size: 13px; text-decoration: none; font-weight: 500;">Forgot password?</a></div>', unsafe_allow_html=True)
+        user_input = st.text_input("Username or Email", key="login_username_input", placeholder="Enter username or email")
+        password = st.text_input("Password", type="password", key="login_password_input", placeholder="Enter your password")
 
-        st.markdown("<div style='height: 6px;'></div>", unsafe_allow_html=True)
+        col_remember, col_forgot = st.columns([1.5, 1])
+        with col_remember:
+            st.checkbox("Remember this device for 30 days", value=True, key="login_remember")
+        with col_forgot:
+            st.markdown('<div style="text-align: right; padding-top: 6px;"><a href="#" style="font-size: 13px; color: #2563EB; text-decoration: none; font-weight: 500;">Forgot password?</a></div>', unsafe_allow_html=True)
 
-        if st.button("Login", type="primary", use_container_width=True):
-            if not email_input.strip() or not pass_input.strip():
-                st.error("Please enter both email/username and password.")
+        st.write("")
+        if st.button("Sign In", type="primary", use_container_width=True, key="btn_login_submit"):
+            u_clean = user_input.strip()
+            p_clean = password.strip()
+
+            if not u_clean or not p_clean:
+                st.warning("Please enter your username/email and password.")
             else:
-                is_valid, user_name, user_email = verify_user(email_input, pass_input)
+                is_valid, username = verify_user(u_clean, p_clean)
                 if is_valid:
-                    st.session_state.logged_in = True
+                    email_addr = u_clean if "@" in u_clean else f"{username}@company.com"
                     st.session_state.user = {
-                        "username": user_name,
-                        "email": user_email or email_input,
-                        "id": 1
+                        "username": username,
+                        "name": username.capitalize(),
+                        "full_name": username.capitalize(),
+                        "email": email_addr,
+                        "role": "Admin"
                     }
-                    st.session_state.page = "dashboard"
+                    st.session_state.username = username
+                    st.session_state.logged_in = True
+                    st.session_state.page = "home"
                     st.rerun()
                 else:
-                    st.error("Invalid email or password.")
+                    st.error("Invalid username/email or password.")
 
-        # Divider OR
         st.markdown("""
-            <div style="text-align: center; margin: 18px 0; position: relative;">
-                <hr style="border: none; border-top: 1px solid #E2E8F0; margin: 0;">
-                <span style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: white; padding: 0 12px; color: #94A3B8; font-size: 12px; font-weight: 600;">OR</span>
+            <div style="display: flex; align-items: center; margin: 20px 0 16px 0;">
+                <div style="flex: 1; height: 1px; background: #E2E8F0;"></div>
+                <span style="padding: 0 12px; font-size: 12px; font-weight: 600; color: #94A3B8; text-transform: uppercase;">OR</span>
+                <div style="flex: 1; height: 1px; background: #E2E8F0;"></div>
             </div>
         """, unsafe_allow_html=True)
 
-        # Continue with Google button
-        st.markdown('<div class="secondary-btn">', unsafe_allow_html=True)
-        if st.button("🌐 Continue with Google", key="google_login", use_container_width=True):
+        if st.button("🌐 Continue with Google", use_container_width=True, key="btn_login_google"):
+            st.session_state.user = {
+                "username": "google_user",
+                "name": "Google User",
+                "full_name": "Google User",
+                "email": "user@google.com",
+                "role": "Analyst"
+            }
+            st.session_state.username = "google_user"
             st.session_state.logged_in = True
-            st.session_state.user = {"username": "Google User", "email": "user@enterprise.com", "id": 1}
-            st.session_state.page = "dashboard"
+            st.session_state.page = "home"
             st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
 
-        # Switch to Signup
-        st.markdown("""
-            <div style="text-align: center; margin-top: 24px; font-size: 13.5px; color: #64748B;">
-                Don't have an account?
-            </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown('<div class="link-btn" style="text-align: center;">', unsafe_allow_html=True)
-        if st.button("Sign up", key="switch_to_signup"):
+        st.write("")
+        st.markdown('<div style="text-align: center; font-size: 14px; color: #64748B;">Don\'t have an account?</div>', unsafe_allow_html=True)
+        if st.button("Sign up", use_container_width=True, key="btn_goto_signup"):
             st.session_state.page = "signup"
             st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)

@@ -1,148 +1,169 @@
-﻿import streamlit as st
+﻿import os
 import base64
-import os
-from auth.database import create_user
+import streamlit as st
+from auth.database import register_user
 
-def get_image_base64(filepath):
-    if os.path.exists(filepath):
-        with open(filepath, "rb") as f:
-            return base64.b64encode(f.read()).decode("utf-8")
+try:
+    from auth.images_b64 import SIGNUP_ROBOT_B64
+except Exception:
+    SIGNUP_ROBOT_B64 = ""
+
+def get_signup_image_b64():
+    """Returns base64 encoded string so broken image icons never appear."""
+    if SIGNUP_ROBOT_B64:
+        return SIGNUP_ROBOT_B64
+    
+    for p in ["assets/signup_robot.jpg", "signup_robot.jpg", "assets/signup_robot_thumb.jpg"]:
+        if os.path.exists(p):
+            try:
+                with open(p, "rb") as f:
+                    return base64.b64encode(f.read()).decode("utf-8")
+            except Exception:
+                pass
     return ""
 
 def signup_page():
     st.markdown("""
         <style>
-        [data-testid="stSidebar"] { display: none; }
         .block-container {
-            max-width: 1080px !important;
             padding-top: 2rem !important;
             padding-bottom: 2rem !important;
+            max-width: 1050px !important;
         }
-        div.stButton > button:first-child {
-            background-color: #2563EB;
-            color: white;
-            font-weight: 600;
-            border-radius: 8px;
-            padding: 0.6rem 1rem;
-            border: none;
-            width: 100%;
-            transition: all 0.2s;
+        div[data-testid="stToolbar"] {
+            visibility: hidden;
+            height: 0%;
+            position: fixed;
         }
-        div.stButton > button:first-child:hover {
-            background-color: #1D4ED8;
-            color: white;
-            border: none;
+        .stTextInput > div > div > input {
+            border-radius: 8px !important;
+            border: 1px solid #E2E8F0 !important;
+            padding: 10px 14px !important;
+            font-size: 14px !important;
         }
-        .secondary-btn button {
-            background-color: #FFFFFF !important;
-            color: #334155 !important;
-            border: 1px solid #CBD5E1 !important;
-            font-weight: 500 !important;
+        .stTextInput > div > div > input:focus {
+            border-color: #2563EB !important;
+            box-shadow: 0 0 0 1px #2563EB !important;
         }
-        .secondary-btn button:hover {
-            background-color: #F8FAFC !important;
-            color: #0F172A !important;
-            border-color: #94A3B8 !important;
-        }
-        .link-btn button {
-            background: none !important;
-            border: none !important;
-            color: #2563EB !important;
+        .stButton > button {
+            border-radius: 8px !important;
             font-weight: 600 !important;
-            padding: 0 !important;
-            display: inline !important;
-            width: auto !important;
-            text-decoration: underline;
+            padding: 0.6rem 1rem !important;
+            font-size: 15px !important;
         }
         </style>
     """, unsafe_allow_html=True)
 
-    img_b64 = get_image_base64("assets/signup_robot.jpg")
-    img_tag = f'<img src="data:image/jpeg;base64,{img_b64}" style="width: 100%; border-radius: 14px; box-shadow: 0 12px 30px rgba(0,0,0,0.35);">' if img_b64 else '<img src="https://ais-dev-ju234xxwta5uivor2mhblf-88157110275.asia-southeast1.run.app/signup_robot.jpg" style="width: 100%; border-radius: 14px; box-shadow: 0 12px 30px rgba(0,0,0,0.35);">'
+    img_b64 = get_signup_image_b64()
 
     col_left, col_right = st.columns([1, 1], gap="large")
 
-    # ================= LEFT DARK BLUE CARD =================
     with col_left:
+        # Left Deep Navy Card (#031B4E) with robot pointing at holographic icons
+        if img_b64:
+            img_html = f'<img src="data:image/jpeg;base64,{img_b64}" style="width: 100%; max-height: 380px; object-fit: contain; border-radius: 16px; margin-bottom: 24px; display: block;" alt="AI Assistant Guide" />'
+        else:
+            img_html = '<div style="height: 320px; display: flex; align-items: center; justify-content: center; font-size: 72px;">🤖</div>'
+
         st.markdown(f"""
-            <div style="background-color: #031B4E; border-radius: 20px; padding: 36px 32px; height: 100%; display: flex; flex-direction: column; justify-content: space-between; border: 1px solid rgba(59,130,246,0.25);">
-                <div style="text-align: center; margin-bottom: 24px;">
-                    {img_tag}
-                </div>
+            <div style="background: linear-gradient(180deg, #021235 0%, #031B4E 50%, #06286E 100%);
+                        border-radius: 24px; padding: 32px 28px; color: #FFFFFF;
+                        box-shadow: 0 20px 40px -15px rgba(2, 18, 53, 0.4); border: 1px solid rgba(255, 255, 255, 0.1);
+                        min-height: 580px; display: flex; flex-direction: column; justify-content: space-between;">
                 <div>
-                    <h2 style="color: #FFFFFF; font-size: 26px; font-weight: 800; line-height: 1.25; margin: 0 0 8px 0;">
-                        Join Enterprise RAG
+                    {img_html}
+                    <h2 style="color: #FFFFFF; font-size: 24px; font-weight: 700; margin: 0 0 8px 0; line-height: 1.3;">
+                        Intelligent <span style="color: #38BDF8;">Workspaces</span>
                     </h2>
-                    <p style="color: #93C5FD; font-size: 13.5px; line-height: 1.45; margin: 0;">
-                        Get started with your account and explore trusted, AI-powered insights for your organization.
+                    <p style="color: #94A3B8; font-size: 14px; margin: 0 0 16px 0; font-weight: 400;">
+                        Enterprise Hybrid RAG Platform
                     </p>
                 </div>
+                <div style="padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, 0.12); display: flex; gap: 8px; flex-wrap: wrap; font-size: 12px; color: #7DD3FC;">
+                    <span>• Vector Embeddings</span>
+                    <span>• Automated Routing</span>
+                    <span>• Verified Sources</span>
+                </div>
             </div>
         """, unsafe_allow_html=True)
 
-    # ================= RIGHT WHITE CARD =================
     with col_right:
         st.markdown("""
-            <div style="padding: 10px 10px 0 10px;">
-                <div style="display: flex; items-center; gap: 10px; margin-bottom: 4px;">
-                    <span style="font-size: 28px;">🧠</span>
-                    <span style="font-size: 24px; font-weight: 700; color: #0F172A; line-height: 34px;">Enterprise RAG</span>
+            <div style="margin-bottom: 16px;">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                    <div style="background: #2563EB; width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-size: 18px; font-weight: bold; box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);">
+                        ⚡
+                    </div>
+                    <div>
+                        <div style="font-weight: 800; font-size: 18px; color: #0F172A; line-height: 1.1;">Enterprise RAG</div>
+                        <div style="font-size: 11px; color: #64748B;">Adaptive Intelligence Knowledge Platform</div>
+                    </div>
                 </div>
-                <p style="color: #64748B; font-size: 14px; margin: 0 0 20px 0;">
-                    Create your account to get started.
-                </p>
+                <h1 style="font-size: 26px; font-weight: 800; color: #0F172A; margin: 10px 0 4px 0;">Create account</h1>
+                <p style="font-size: 14px; color: #64748B; margin: 0;">Join the enterprise intelligence knowledge platform</p>
             </div>
         """, unsafe_allow_html=True)
 
-        full_name = st.text_input("Full name", placeholder="Full name", key="signup_name", label_visibility="collapsed")
-        email = st.text_input("Email address", placeholder="Email address", key="signup_email", label_visibility="collapsed")
-        password = st.text_input("Password", type="password", placeholder="Password", key="signup_pass", label_visibility="collapsed")
-        confirm_pass = st.text_input("Confirm password", type="password", placeholder="Confirm password", key="signup_confirm", label_visibility="collapsed")
+        new_username = st.text_input("Username", key="signup_user", placeholder="Enter your username")
+        new_email = st.text_input("Email", key="signup_mail", placeholder="name@company.com")
+        
+        col_p1, col_p2 = st.columns(2)
+        with col_p1:
+            new_pass = st.text_input("Password", type="password", key="signup_pass", placeholder="Create password")
+        with col_p2:
+            confirm_pass = st.text_input("Confirm Password", type="password", key="signup_confirm", placeholder="Confirm password")
 
-        st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
+        agree_terms = st.checkbox("I agree to the Enterprise Terms of Service and Privacy Policy", value=True, key="signup_terms")
 
-        if st.button("Create Account", type="primary", use_container_width=True):
-            if not full_name.strip() or not email.strip() or not password.strip() or not confirm_pass.strip():
-                st.error("Please fill in all fields.")
-            elif password != confirm_pass:
+        st.write("")
+        if st.button("Create Account", type="primary", use_container_width=True, key="btn_signup_submit"):
+            u_clean = new_username.strip()
+            e_clean = new_email.strip()
+            p_clean = new_pass.strip()
+            cp_clean = confirm_pass.strip()
+
+            if not u_clean or not e_clean or not p_clean or not cp_clean:
+                st.warning("All fields are required.")
+            elif "@" not in e_clean or "." not in e_clean:
+                st.error("Please enter a valid email address.")
+            elif len(p_clean) < 6:
+                st.error("Password must be at least 6 characters long.")
+            elif p_clean != cp_clean:
                 st.error("Passwords do not match.")
-            elif len(password) < 6:
-                st.error("Password must be at least 6 characters.")
+            elif not agree_terms:
+                st.warning("Please agree to the Terms of Service to continue.")
             else:
-                success, msg = create_user(full_name, email, password)
-                if success:
-                    st.session_state.reg_success = msg
+                ok, msg = register_user(u_clean, e_clean, p_clean)
+                if ok:
+                    st.session_state.reg_success_msg = "Account created successfully! Please sign in."
                     st.session_state.page = "login"
                     st.rerun()
                 else:
                     st.error(msg)
 
-        # Divider OR
         st.markdown("""
-            <div style="text-align: center; margin: 18px 0; position: relative;">
-                <hr style="border: none; border-top: 1px solid #E2E8F0; margin: 0;">
-                <span style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: white; padding: 0 12px; color: #94A3B8; font-size: 12px; font-weight: 600;">OR</span>
+            <div style="display: flex; align-items: center; margin: 16px 0 12px 0;">
+                <div style="flex: 1; height: 1px; background: #E2E8F0;"></div>
+                <span style="padding: 0 12px; font-size: 12px; font-weight: 600; color: #94A3B8; text-transform: uppercase;">OR</span>
+                <div style="flex: 1; height: 1px; background: #E2E8F0;"></div>
             </div>
         """, unsafe_allow_html=True)
 
-        # Continue with Google button
-        st.markdown('<div class="secondary-btn">', unsafe_allow_html=True)
-        if st.button("🌐 Continue with Google", key="google_signup", use_container_width=True):
+        if st.button("🌐 Continue with Google", use_container_width=True, key="btn_signup_google"):
+            st.session_state.user = {
+                "username": "google_user",
+                "name": "Google User",
+                "full_name": "Google User",
+                "email": "user@google.com",
+                "role": "Analyst"
+            }
+            st.session_state.username = "google_user"
             st.session_state.logged_in = True
-            st.session_state.user = {"username": "Google User", "email": "user@enterprise.com", "id": 1}
-            st.session_state.page = "dashboard"
+            st.session_state.page = "home"
             st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
 
-        # Switch to Login
-        st.markdown("""
-            <div style="text-align: center; margin-top: 24px; font-size: 13.5px; color: #64748B;">
-                Already have an account?
-            </div>
-        """, unsafe_allow_html=True)
-
-        st.markdown('<div class="link-btn" style="text-align: center;">', unsafe_allow_html=True)
-        if st.button("Log in", key="switch_to_login"):
+        st.write("")
+        st.markdown('<div style="text-align: center; font-size: 14px; color: #64748B;">Already have an account?</div>', unsafe_allow_html=True)
+        if st.button("Sign In", use_container_width=True, key="btn_goto_login"):
             st.session_state.page = "login"
             st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
