@@ -5,7 +5,7 @@ from dashboard.upload import document_sidebar
 from dashboard.chat import chat_sidebar
 
 def get_dashboard_image_b64():
-    """Retrieve base64 image string for dashboard robot, prioritizing local assets."""
+    """Retrieve base64 image string for dashboard robot, checking assets and local folders."""
     possible_paths = [
         "assets/dashboard_robot.png",
         "assets/dashboard_robot.jpg",
@@ -15,8 +15,7 @@ def get_dashboard_image_b64():
         "dashboard_robot.png",
         "dashboard_robot.jpg",
         "assets/image.png",
-        "assets/login_robot.jpg",
-        "assets/signup_robot.jpg"
+        "assets/login_robot.jpg"
     ]
     for p in possible_paths:
         if os.path.exists(p):
@@ -137,7 +136,8 @@ def inject_global_theme(is_dark=False):
 
 
 def dashboard():
-    st.markdown('''    <style>
+    st.markdown('''
+        <style>
         /* Force crisp black text across all cards, paragraphs, and markdown in Light Mode */
         html, body, [data-testid="stAppViewContainer"] {
             color: #0f172a !important;
@@ -149,18 +149,17 @@ def dashboard():
             color: #000000 !important;
             font-weight: 700 !important;
         }
-        /* Specific card paragraph text */
         [data-testid="stVerticalBlock"] p {
             color: #1e293b !important;
         }
         </style>
     ''', unsafe_allow_html=True)
 
-    # 1. Apply global light/dark theme
+    # 1. Apply global theme
     is_dark = st.session_state.get("dark_mode", False)
     inject_global_theme(is_dark)
 
-    # 2. Render Sidebar with Profile, Mode Toggle, and Sidebars
+    # 2. Render Sidebar with user info and sidebar handlers
     with st.sidebar:
         user_name = st.session_state.get("user_name", "Enterprise User")
         user_email = st.session_state.get("user_email", "admin@enterprise.ai")
@@ -185,7 +184,7 @@ def dashboard():
                 st.rerun()
 
         st.markdown("---")
-        # Document management and Chat sidebars
+        # Keep both of your sidebar functions
         document_sidebar()
         chat_sidebar()
 
@@ -193,7 +192,7 @@ def dashboard():
     img_b64 = get_dashboard_image_b64()
     img_tag = f'<img src="data:image/png;base64,{img_b64}" style="width: 140px; height: 140px; object-fit: cover; border-radius: 18px; box-shadow: 0 10px 25px rgba(2, 18, 53, 0.4); border: 1px solid rgba(255, 255, 255, 0.15);" alt="Dashboard AI Robot" />' if img_b64 else '<div style="font-size: 64px;">🤖</div>'
 
-    # 4. Hero Welcome Card featuring the 3D Dashboard Robot
+    # 4. Hero Welcome Card featuring the Dashboard Robot
     st.markdown(f"""
         <div style="background: linear-gradient(135deg, #021235 0%, #031B4E 55%, #06286E 100%);
                     border-radius: 24px; padding: 26px 30px; color: #FFFFFF;
