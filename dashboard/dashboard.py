@@ -1,5 +1,4 @@
-﻿# dashboard/dashboard.py
-import streamlit as st
+﻿import streamlit as st
 from dashboard.upload import document_sidebar
 from dashboard.chat import chat_sidebar
 
@@ -193,22 +192,32 @@ def dashboard():
         is_dark_mode = st.toggle("🌙 Dark Cyber Mode", value=st.session_state.get("ui_is_dark", False), key="ui_is_dark")
 
         st.caption("NAVIGATION MENU")
+        
+        # Check if navigation was triggered programmatically (e.g., from History)
+        menu_options = [
+            "🏠 Home",
+            "📤 Upload Documents",
+            "💬 Chat",
+            "⚖️ Compare Documents",
+            "🕸️ Knowledge Graph",
+            "📊 Source Rankings",
+            "🧠 Memory",
+            "📜 History",
+            "⚙️ Settings",
+            "🚪 Logout"
+        ]
+
+        # Use session state to control page selection
+        current_page = st.session_state.get("nav_page", menu_options[0])
+        default_index = menu_options.index(current_page) if current_page in menu_options else 0
+
         page = st.radio(
             "Navigation Menu",
-            [
-                "🏠 Home",
-                "📤 Upload Documents",
-                "💬 Chat",
-                "⚖️ Compare Documents",
-                "🕸️ Knowledge Graph",
-                "📊 Source Rankings",
-                "🧠 Memory",
-                "📜 History",
-                "⚙️ Settings",
-                "🚪 Logout"
-            ],
+            menu_options,
+            index=default_index,
             label_visibility="collapsed"
         )
+        st.session_state["nav_page"] = page
 
         st.divider()
 
@@ -223,8 +232,3 @@ def dashboard():
     inject_global_theme(is_dark_mode)
 
     return page
-
-
-
-
-

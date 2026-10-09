@@ -113,6 +113,18 @@ def chat_page():
                     ai_msg.cited_source = cited
                     st.session_state.messages.append(ai_msg)
 
+                    # Keep persistent history record
+                    if "query_history" not in st.session_state:
+                        st.session_state["query_history"] = []
+                    
+                    st.session_state["query_history"].append({
+                        "query": user_prompt,
+                        "answer": ans_text,
+                        "source": cited,
+                        "faithfulness": faith,
+                        "timestamp": datetime.datetime.now().strftime("%I:%M %p")
+                    })
+
                 except Exception as e:
                     err_msg = f"⚠️ Workflow error: {str(e)}"
                     st.error(err_msg)
