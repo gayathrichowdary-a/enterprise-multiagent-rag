@@ -1,6 +1,31 @@
-﻿import streamlit as st
+﻿import os
+import base64
+import streamlit as st
 from dashboard.upload import document_sidebar
 from dashboard.chat import chat_sidebar
+
+def get_dashboard_image_b64():
+    """Retrieve base64 image string for dashboard robot, prioritizing local assets."""
+    possible_paths = [
+        "assets/dashboard_robot.png",
+        "assets/dashboard_robot.jpg",
+        "assets/dashboard_robot.jpeg",
+        "dashboard/dashboard_robot.png",
+        "dashboard/dashboard_robot.jpg",
+        "dashboard_robot.png",
+        "dashboard_robot.jpg",
+        "assets/image.png",
+        "assets/login_robot.jpg",
+        "assets/signup_robot.jpg"
+    ]
+    for p in possible_paths:
+        if os.path.exists(p):
+            try:
+                with open(p, "rb") as f:
+                    return base64.b64encode(f.read()).decode("utf-8")
+            except Exception:
+                pass
+    return ""
 
 def inject_global_theme(is_dark=False):
     """Applies clean Light or Full Cyber Dark mode across EVERY page."""
@@ -127,108 +152,85 @@ def dashboard():
         /* Specific card paragraph text */
         [data-testid="stVerticalBlock"] p {
             color: #1e293b !important;
-            font-weight: 500 !important;
-            font-size: 15px !important;
-            line-height: 1.6 !important;
         }
-        /* Sidebar items high-contrast text */
-        [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label {
-            color: #0f172a !important;
-            font-weight: 600 !important;
-        }
-        /* Metric values and labels */
-        div[data-testid="stMetric"] {
-            padding: 16px 20px !important;
-            border-radius: 12px !important;
-            box-sizing: border-box !important;
-            min-height: 105px !important;
-            display: flex !important;
-            flex-direction: column !important;
-            justify-content: center !important;
-        }
-        [data-testid="stMetricValue"] {
-            color: #000000 !important;
-            font-weight: 800 !important;
-            font-size: 1.85rem !important;
-            line-height: 1.3 !important;
-            padding-bottom: 6px !important;
-            overflow: visible !important;
-        }
-        [data-testid="stMetricLabel"] {
-            color: #1e293b !important;
-            font-weight: 700 !important;
-            font-size: 0.95rem !important;
-            margin-bottom: 6px !important;
-        }
-        /* Keep buttons clear */
-        button p {
-            color: inherit !important;
-        }
-    </style>''', unsafe_allow_html=True)
-    """Main dashboard layout and navigation sidebar."""
-    user = st.session_state.get("user", {}); user = {"name": str(user), "full_name": str(user)} if isinstance(user, str) else user
-    user_name = user.get("full_name") or user.get("name", "Gayathri")
-    user_email = user.get("email", "enterprise@system.ai")
+        </style>
+    ''', unsafe_allow_html=True)
 
+    # 1. Apply global light/dark theme
+    is_dark = st.session_state.get("dark_mode", False)
+    inject_global_theme(is_dark)
+
+    # 2. Render Sidebar with Profile, Mode Toggle, and Sidebars
     with st.sidebar:
-        # Platform Logo
-        st.markdown("""
-            <div style="margin-bottom: 1rem;">
-                <div style="display: inline-block; background: #2563eb; color: white; padding: 3px 8px; border-radius: 6px; font-weight: 800; font-size: 0.72rem; margin-bottom: 6px;">ENTERPRISE</div>
-                <h2 style="font-size: 1.18rem; font-weight: 800; margin: 0; line-height: 1.2;">🤖 Adaptive Multi-Agent RAG</h2>
-            </div>
-        """, unsafe_allow_html=True)
+        user_name = st.session_state.get("user_name", "Enterprise User")
+        user_email = st.session_state.get("user_email", "admin@enterprise.ai")
 
-        # User Card
         st.markdown(f"""
             <div class="user-card">
-                <div class="user-name">🟢 {user_name}</div>
+                <div class="user-name">👤 {user_name}</div>
                 <div class="user-email">{user_email}</div>
             </div>
         """, unsafe_allow_html=True)
 
-        # Theme Toggle (without any dangerous st.rerun loop)
-        st.caption("THEME DISPLAY")
-        is_dark_mode = st.toggle("🌙 Dark Cyber Mode", value=st.session_state.get("ui_is_dark", False), key="ui_is_dark")
+        col_t1, col_t2 = st.columns([2, 1])
+        with col_t1:
+            dark_toggle = st.toggle("🌙 Dark Mode", value=is_dark)
+            if dark_toggle != is_dark:
+                st.session_state["dark_mode"] = dark_toggle
+                st.rerun()
+        with col_t2:
+            if st.button("Logout", key="logout_btn"):
+                st.session_state["authenticated"] = False
+                st.session_state["current_page"] = "login"
+                st.rerun()
 
-        st.caption("NAVIGATION MENU")
-        
-        # Check if navigation was triggered programmatically (e.g., from History)
-        menu_options = [
-            "🏠 Home",
-            "📤 Upload Documents",
-            "💬 Chat",
-            "⚖️ Compare Documents",
-            "🕸️ Knowledge Graph",
-            "📊 Source Rankings",
-            "🧠 Memory",
-            "📜 History",
-            "⚙️ Settings",
-            "🚪 Logout"
-        ]
+        st.markdown("---")
+        # Document management and Chat sidebars
+        document_sidebar()
+        chat_sidebar()
 
-        # Use session state to control page selection
-        current_page = st.session_state.get("nav_page", menu_options[0])
-        default_index = menu_options.index(current_page) if current_page in menu_options else 0
+    # 3. Retrieve Dashboard Robot Image
+    img_b64 = get_dashboard_image_b64()
+    img_tag = f'<img src="data:image/png;base64,{img_b64}" style="width: 140px; height: 140px; object-fit: cover; border-radius: 18px; box-shadow: 0 10px 25px rgba(2, 18, 53, 0.4); border: 1px solid rgba(255, 255, 255, 0.15);" alt="Dashboard AI Robot" />' if img_b64 else '<div style="font-size: 64px;">🤖</div>'
 
-        page = st.radio(
-            "Navigation Menu",
-            menu_options,
-            index=default_index,
-            label_visibility="collapsed"
-        )
-        st.session_state["nav_page"] = page
+    # 4. Hero Welcome Card featuring the 3D Dashboard Robot
+    st.markdown(f"""
+        <div style="background: linear-gradient(135deg, #021235 0%, #031B4E 55%, #06286E 100%);
+                    border-radius: 24px; padding: 26px 30px; color: #FFFFFF;
+                    box-shadow: 0 20px 40px -15px rgba(2, 18, 53, 0.45);
+                    border: 1px solid rgba(255, 255, 255, 0.12);
+                    display: flex; align-items: center; justify-content: space-between;
+                    margin-bottom: 2rem; gap: 24px; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 260px;">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                    <span style="background: #2563EB; color: white; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: 0.5px;">ACTIVE SYSTEM</span>
+                    <span style="color: #94A3B8; font-size: 12px; font-weight: 500;">Enterprise Hybrid RAG Platform</span>
+                </div>
+                <h2 style="color: #FFFFFF; font-size: 26px; font-weight: 800; margin: 0 0 8px 0; line-height: 1.25;">
+                    Intelligent <span style="color: #38BDF8;">Workspace & Analytics</span>
+                </h2>
+                <p style="color: #94A3B8; font-size: 14px; margin: 0 0 16px 0; line-height: 1.5; font-weight: 400;">
+                    Multi-vector embeddings, agentic query routing, and reranked knowledge bases.
+                </p>
+                <div style="display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: #7DD3FC;">
+                    <span>• Hybrid Retrieval Active</span>
+                    <span>• Multi-Agent Engine</span>
+                    <span>• Real-time Grounding</span>
+                </div>
+            </div>
+            <div style="flex-shrink: 0; display: flex; justify-content: center; align-items: center;">
+                {img_tag}
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
 
-        st.divider()
-
-        if page == "📤 Upload Documents":
-            document_sidebar()
-        elif "Chat" in str(page):
-            chat_sidebar()
-
-        st.caption("🛡️ Adaptive Engine v2.4 Active")
-
-    # Inject theme based on toggle state
-    inject_global_theme(is_dark_mode)
-
-    return page
+    # 5. Dashboard Metrics Row
+    m1, m2, m3, m4 = st.columns(4)
+    with m1:
+        st.metric("Total Indexed Docs", st.session_state.get("total_docs", 42), delta="+3 today")
+    with m2:
+        st.metric("Vector Chunks", st.session_state.get("vector_chunks", 1284), delta="+120")
+    with m3:
+        st.metric("Avg Latency", "320 ms", delta="-45 ms")
+    with m4:
+        st.metric("Retrieval Precision", "98.4%", delta="+0.8%")
