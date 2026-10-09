@@ -8,7 +8,24 @@ try:
     from dashboard.nav import render_sidebar
 except Exception:
     def render_sidebar(current_page="Chat"):
-        pass
+        with st.sidebar:
+            st.markdown("### 🤖 Adaptive Multi-Agent RAG")
+            st.markdown("---")
+            nav_items = [
+                ("Home", "home", "🏠"),
+                ("Upload Documents", "upload", "📁"),
+                ("Chat", "chat", "💬"),
+                ("Compare Documents", "compare", "⚖️"),
+                ("Knowledge Graph", "graph", "🕸️"),
+                ("Settings", "settings", "⚙️"),
+                ("Memory", "memory", "🧠"),
+                ("History", "history", "📜")
+            ]
+            for label, key, icon in nav_items:
+                if st.button(f"{icon} {label}", key=f"fb_nav_{key}", use_container_width=True):
+                    st.session_state["page"] = key
+                    st.session_state["nav_selection"] = label
+                    st.rerun()
 
 try:
     from dashboard.upload import document_sidebar, upload_page
@@ -352,12 +369,11 @@ def dashboard():
     inject_global_theme(is_dark)
 
     # 2. Render Sidebar
-    from dashboard.nav import render_sidebar
     render_sidebar("Chat")
 
     # 3. Retrieve Dashboard Robot Image
     img_b64 = get_dashboard_image_b64()
-    img_tag = f'<img src="data:image/png;base64,{img_b64}" style="width: 140px; height: 140px; object-fit: cover; border-radius: 18px; box-shadow: 0 10px 25px rgba(2, 18, 53, 0.4); border: 1px solid rgba(255, 255, 255, 0.15);" alt="Dashboard AI Robot" />' if img_b64 else '<div style="font-size: 64px;">🤖</div>'
+    img_tag =  f'<img src="data:image/png;base64,{img_b64}" style="width: 140px; height: 140px; object-fit: cover; border-radius: 18px; box-shadow: 0 10px 25px rgba(2, 18, 53, 0.4); border: 1px solid rgba(255, 255, 255, 0.15);" alt="Dashboard AI Robot" />' if img_b64 else '<div style="font-size: 64px;">🤖</div>'
 
     # 4. Hero Welcome Card featuring the 3D Dashboard Robot
     current_mode = st.session_state.get("agent_mode_select", "Adaptive Multi-Agent (Authority-Weighted)")
