@@ -1,21 +1,37 @@
-﻿import streamlit as st
+﻿import os
+import sys
+import traceback
 
+import streamlit as st
+
+# Make sure the project root is importable on Streamlit Cloud
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+if ROOT_DIR not in sys.path:
+    sys.path.insert(0, ROOT_DIR)
+
+# Must be the first Streamlit command
 st.set_page_config(
     page_title="Enterprise Multi-Agent RAG",
     page_icon="🤖",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
 )
 
-from dashboard.nav import render_sidebar
-from dashboard.home import home_page
-from dashboard.upload import upload_page
-from dashboard.dashboard import dashboard
-from dashboard.compare import compare_page
-from dashboard.graph import knowledge_graph_page
-from dashboard.settings import settings_page
-from dashboard.memory import memory_page
-from dashboard.history import history_page
+# Imports (wrapped so the real error is shown instead of the redacted one)
+try:
+    from dashboard.sidebar import render_sidebar
+    from dashboard.home import home_page
+    from dashboard.upload import upload_page
+    from dashboard.dashboard import dashboard
+    from dashboard.compare import compare_page
+    from dashboard.graph import knowledge_graph_page
+    from dashboard.settings import settings_page
+    from dashboard.memory import memory_page
+    from dashboard.history import history_page
+except Exception:
+    st.error("Import error. Full traceback below:")
+    st.code(traceback.format_exc())
+    st.stop()
 
 # Session State Initialization
 if "logged_in" not in st.session_state:
