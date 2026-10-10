@@ -1,6 +1,7 @@
 ﻿import os
 import base64
 import time
+import traceback
 import streamlit as st
 
 # Modular safe imports
@@ -20,13 +21,65 @@ except Exception:
         st.info("Upload module initialized.")
 
 try:
-    from dashboard.chat import chat_sidebar, run_rag_pipeline
+    from dashboard.chat import chat_sidebar
 except Exception:
     def chat_sidebar():
         st.markdown("### 🤖 Multi-Agent Settings")
         st.selectbox("Agent Routing Mode", ["Adaptive Multi-Agent", "Hybrid RAG", "Strict Vector"], key="fb_mode")
-    def run_rag_pipeline(q):
-        return f"Response for: {q}", [], {"router": "Default Agent", "retrieval": "Dense", "confidence": "95%"}
+
+# Real RAG workflow (no silent echo stub: errors are shown on the page)
+_WORKFLOW_ERR = None
+try:
+    from agents.agent_workflow import run_workflow
+except Exception:
+    run_workflow = None
+    _WORKFLOW_ERR = traceback.format_exc()
+
+
+def get_available_documents():
+    """Names of documents the user has uploaded/indexed."""
+    names = list(st.session_state.get("vector_stores", {}).keys())
+    if not names:
+        names = list(st.session_state.get("knowledge_sources", {}).keys())
+    return names
+
+
+def run_rag_pipeline(query, selected_files=None):
+    """Run the real multi-agent workflow, restricted to the selected documents."""
+    if run_workflow is None:
+        raise RuntimeError("Could not import agents.agent_workflow.run_workflow:\n" + (_WORKFLOW_ERR or ""))
+
+    try:
+        if selected_files:
+            res = run_workflow(query, selected_files=selected_files)
+        else:
+            res = run_workflow(query)
+    except TypeError:
+        # run_workflow does not accept selected_files
+        res = run_workflow(query)
+
+    if not isinstance(res, dict):
+        return str(res), [], {}
+
+    answer = (
+        res.get("answer") or res.get("final_answer") or res.get("response")
+        or res.get("result") or res.get("output") or "No answer was returned by the workflow."
+    )
+
+    raw_sources = res.get("sources") or res.get("citations") or res.get("retrieved_docs") or []
+    sources = []
+    for s in raw_sources:
+        if isinstance(s, dict):
+            sources.append(s)
+        else:
+            sources.append({"name": str(s)})
+
+    ares = res.get("ares_scores", {}) or {}
+    trace = res.get("trace") or res.get("agent_trace") or {}
+    if ares and isinstance(trace, dict):
+        trace = dict(trace)
+        trace.setdefault("ares", ares)
+    return answer, sources, trace
 
 
 def get_dashboard_image_b64():
@@ -223,6 +276,27 @@ def dashboard():
     # 4. Interactive Chat Console
     st.subheader("💬 Interactive Multi-Agent Chat Console")
 
+    # Active Knowledge Source selector (choose which document(s) to ask about)
+    st.markdown("##### 📂 Active Knowledge Source")
+    available_docs = get_available_documents()
+    col_sel, col_clear = st.columns([5, 1])
+    with col_sel:
+        if available_docs:
+            selected_files = st.multiselect(
+                "Files to route queries to:",
+                options=available_docs,
+                default=available_docs[:1],
+                key="active_files_select",
+            )
+        else:
+            selected_files = []
+            st.info("No documents uploaded yet. Go to **Upload Documents** to add files.")
+    with col_clear:
+        st.write("")
+        if st.button("🗑️ Clear Chat", key="main_clear_chat_btn", use_container_width=True):
+            st.session_state["chat_messages"] = []
+            st.rerun()
+
     for msg in st.session_state["chat_messages"]:
         if msg["role"] == "user":
             with st.chat_message("user", avatar="👤"):
@@ -239,13 +313,22 @@ def dashboard():
     # Query Input
     user_query = st.chat_input("Ask a question across indexed enterprise documents...")
     if user_query:
+        if available_docs and not selected_files:
+            st.warning("Please select at least one document in 'Active Knowledge Source' first.")
+            st.stop()
+
         st.session_state["chat_messages"].append({"role": "user", "content": user_query})
         with st.chat_message("user", avatar="👤"):
             st.markdown(user_query)
 
         with st.chat_message("assistant", avatar="🤖"):
             with st.spinner("Autonomous Agent Orchestrating & ARES Filtering..."):
-                response_text, sources, trace = run_rag_pipeline(user_query)
+                try:
+                    response_text, sources, trace = run_rag_pipeline(user_query, selected_files)
+                except Exception:
+                    st.error("The RAG pipeline failed. Full error below:")
+                    st.code(traceback.format_exc())
+                    st.stop()
                 st.markdown(response_text)
                 st.session_state["chat_messages"].append({
                     "role": "assistant",
