@@ -1,151 +1,216 @@
-﻿import streamlit as st
+﻿import re
 import math
+import datetime
+from collections import Counter
+
 import pandas as pd
-from agents.agent_workflow import run_workflow
+import streamlit as st
+
+from dashboard.upload import init_knowledge_base_state
 
 try:
-    import plotly.graph_objects as go
-    HAS_PLOTLY = True
-except ImportError:
-    HAS_PLOTLY = False
+    from agents.agent_workflow import call_groq_llm, get_secret, build_context
+    _LLM_ERR = ""
+except Exception as e:
+    call_groq_llm = get_secret = build_context = None
+    _LLM_ERR = f"{type(e).__name__}: {e}"
+
+_STOP = set("""about above after again against all also and any are because been before being below
+between both but can could did does doing down during each few for from further had has have having
+here into its itself just more most not now off once only other our out over own same should some such
+than that the their them then there these they this those through too under until very was were what
+when where which while who whom why will with would you your""".split())
+
+
+def _words(text):
+    return re.findall(r"[a-zA-Z]{3,}", text.lower())
+
+
+def _content_words(text):
+    return [w for w in _words(text) if w not in _STOP]
+
+
+def _cosine(c1, c2):
+    dot = sum(c1[w] * c2[w] for w in c1 if w in c2)
+    n1 = math.sqrt(sum(v * v for v in c1.values()))
+    n2 = math.sqrt(sum(v * v for v in c2.values()))
+    return dot / (n1 * n2) if n1 and n2 else 0.0
+
+
+def _jaccard(s1, s2):
+    union = s1 | s2
+    return len(s1 & s2) / len(union) if union else 0.0
+
+
+def _shingles(tokens, n=5):
+    return {" ".join(tokens[i:i + n]) for i in range(max(0, len(tokens) - n + 1))}
+
+
+def compute_metrics(text_a, text_b):
+    ca, cb = Counter(_content_words(text_a)), Counter(_content_words(text_b))
+    topic = _cosine(ca, cb)
+    vocab = _jaccard(set(ca), set(cb))
+
+    sa, sb = _shingles(_words(text_a)), _shingles(_words(text_b))
+    copied = len(sa & sb) / min(len(sa), len(sb)) if sa and sb else 0.0
+
+    shared = sorted(((w, ca[w], cb[w]) for w in set(ca) & set(cb)),
+                    key=lambda x: -min(x[1], x[2]))[:12]
+    only_a = [w for w, _ in ca.most_common(200) if w not in cb][:12]
+    only_b = [w for w, _ in cb.most_common(200) if w not in ca][:12]
+    return {"topic": topic, "vocab": vocab, "copied": copied,
+            "shared": shared, "only_a": only_a, "only_b": only_b}
+
+
+def _label(topic):
+    if topic >= 0.70:
+        return "🟢 Very similar content"
+    if topic >= 0.40:
+        return "🔵 Related topics"
+    if topic >= 0.15:
+        return "🟡 Slightly related"
+    return "🔴 Mostly different topics"
+
+
+def _ai_compare(name_a, text_a, name_b, text_b):
+    if call_groq_llm is None:
+        return None, "Could not import the LLM helpers: " + _LLM_ERR
+    key = get_secret("GROQ_API_KEY")
+    if not key:
+        return None, "GROQ_API_KEY is not set in Streamlit Secrets."
+
+    q = "main topics findings claims conclusions"
+    ctx_a = build_context(q, {name_a: text_a}, budget=4500)
+    ctx_b = build_context(q, {name_b: text_b}, budget=4500)
+
+    sys_prompt = "You compare documents accurately. Use only the text provided. Never invent facts."
+    user_prompt = (
+        f"DOCUMENT A:\n{ctx_a}\n\nDOCUMENT B:\n{ctx_b}\n\n"
+        "Compare the two documents. Use exactly these markdown headings and nothing else:\n"
+        "### Summary of Document A\n(2-3 bullets)\n"
+        "### Summary of Document B\n(2-3 bullets)\n"
+        "### Similarities\n(3-5 bullets)\n"
+        "### Differences\n(3-5 bullets)\n"
+        "### Conflicts\n(statements where they contradict each other, saying which document says what; "
+        "write 'None found' if there are none)\n"
+        "### Verdict\n(one sentence on how related they are)"
+    )
+    out = call_groq_llm(key, sys_prompt, user_prompt)
+    if out.startswith("⚠️"):
+        return None, out
+    return {"text": out, "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")}, ""
+
 
 def comparison_page():
-    st.title("📊 Empirical Evaluation & Visual Analytics")
-    st.caption("Quantitative visual charts and benchmarks: Vanilla RAG vs. Hybrid RAG (FAISS + BM25 with RRF) vs. Multi-Hop Graph RAG.")
+    init_knowledge_base_state()
 
-    # 1. LIVE BENCHMARK RUNNER
-    st.subheader("🧪 Run Live ARES-Inspired Evaluation Benchmark")
-    user_test_query = st.text_input("Benchmark Query:", value="What are the key policy requirements and system architecture?")
-    
-    col_bench, _ = st.columns([2, 5])
-    with col_bench:
-        run_bench = st.button("🚀 Execute Empirical Benchmark", use_container_width=True)
+    st.title("⚖️ Compare Documents")
+    st.caption("Pick two of your uploaded documents to see how similar they are and where they differ.")
 
-    if run_bench:
-        with st.spinner("Evaluating across retrieval architectures..."):
-            res = run_workflow(user_test_query)
-            ares = res.get("ares_scores", {})
-            cr = ares.get("context_relevance", 0.91)
-            gf = ares.get("grounded_faithfulness", 0.95)
-            ar = ares.get("answer_relevance", 0.89)
-            
-            n_samples = 30
-            std_err = math.sqrt((gf * (1.0 - gf)) / n_samples)
-            ci_half = round(1.96 * std_err * 100, 2)
+    raw = st.session_state.get("raw_document_texts", {})
+    docs = st.session_state.get("documents_list", [])
+    meta = {d.get("name"): d for d in docs}
+    names = [d["name"] for d in docs if d.get("name") in raw]
 
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                st.metric("Context Relevance", f"{cr*100:.1f}%")
-            with col2:
-                st.metric("Grounded Faithfulness", f"{gf*100:.1f}%")
-            with col3:
-                st.metric("Answer Relevance", f"{ar*100:.1f}%")
-            with col4:
-                st.metric("PPI 95% CI", f"±{ci_half}%")
-            st.success("✅ Real evaluation completed dynamically from your indexed documents!")
-
-    st.divider()
-
-    # 2. PIE / DONUT CHARTS
-    st.subheader("🥧 Retrieval & Source Distribution (Pie Charts)")
-    col_pie1, col_pie2 = st.columns(2)
-
-    with col_pie1:
-        st.markdown("##### 🔀 Hybrid RRF Retrieval Ratio")
-        if HAS_PLOTLY:
-            fig_rrf = go.Figure(data=[go.Pie(
-                labels=["Dense FAISS Vector Search", "Sparse BM25 Keyword Search"],
-                values=[70, 30],
-                hole=0.5,
-                marker=dict(colors=["#3b82f6", "#10b981"])
-            )])
-            fig_rrf.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=280)
-            st.plotly_chart(fig_rrf, use_container_width=True)
-        else:
-            df_rrf = pd.DataFrame({"Retrieval Engine": ["Dense FAISS (70%)", "Sparse BM25 (30%)"], "Weight": [70, 30]}).set_index("Retrieval Engine")
-            st.bar_chart(df_rrf)
-        st.caption("Weighting: 70% Dense FAISS Semantic + 30% Sparse BM25 Keyword fused via RRF ($k=60$).")
-
-    with col_pie2:
-        st.markdown("##### 🏛️ Knowledge Authority Tier Distribution")
-        if HAS_PLOTLY:
-            fig_tiers = go.Figure(data=[go.Pie(
-                labels=["Tier 1: Policy/Runbooks (95%)", "Tier 2: Internal Wiki (80%)", "Tier 3: Informal Notes (55%)"],
-                values=[45, 35, 20],
-                hole=0.5,
-                marker=dict(colors=["#8b5cf6", "#f59e0b", "#64748b"])
-            )])
-            fig_tiers.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=280)
-            st.plotly_chart(fig_tiers, use_container_width=True)
-        else:
-            df_tiers = pd.DataFrame({"Tier": ["Tier 1 (95%)", "Tier 2 (80%)", "Tier 3 (55%)"], "Distribution": [45, 35, 20]}).set_index("Tier")
-            st.bar_chart(df_tiers)
-        st.caption("Authority Tiers determine baseline institutional reliability.")
-
-    st.divider()
-
-    # 3. GROUPED BAR GRAPH (Comparative Benchmark)
-    st.subheader("📊 Comparative Architecture Benchmark (Bar Graph)")
-    architectures = ["Vanilla RAG (Dense Only)", "Hybrid RAG (FAISS + BM25 + RRF)", "Multi-Hop Graph RAG"]
-    
-    if HAS_PLOTLY:
-        fig_bar = go.Figure()
-        fig_bar.add_trace(go.Bar(x=architectures, y=[74.2, 91.8, 93.4], name="Precision (%)", marker_color="#3b82f6"))
-        fig_bar.add_trace(go.Bar(x=architectures, y=[68.5, 89.2, 92.1], name="Recall (%)", marker_color="#10b981"))
-        fig_bar.add_trace(go.Bar(x=architectures, y=[71.2, 90.5, 92.7], name="F1-Score (%)", marker_color="#f59e0b"))
-        fig_bar.add_trace(go.Bar(x=architectures, y=[78.4, 94.6, 96.2], name="Faithfulness (%)", marker_color="#8b5cf6"))
-        fig_bar.update_layout(
-            barmode="group",
-            margin=dict(t=20, b=20, l=10, r=10),
-            height=360,
-            yaxis=dict(title="Score (%)", range=[50, 100])
+    if len(names) < 2:
+        st.info(
+            f"You need at least 2 documents with readable text. Right now there are {len(names)}. "
+            "Go to **Upload Documents**, upload your files and click **Index Staged Files Now**."
         )
-        st.plotly_chart(fig_bar, use_container_width=True)
-    else:
-        df_bench = pd.DataFrame({
-            "Precision": [74.2, 91.8, 93.4],
-            "Recall": [68.5, 89.2, 92.1],
-            "F1-Score": [71.2, 90.5, 92.7],
-            "Faithfulness": [78.4, 94.6, 96.2]
-        }, index=architectures)
-        st.bar_chart(df_bench)
+        if len(docs) > len(names):
+            st.caption("Sample documents have no text, so they cannot be compared.")
+        return
 
-    st.divider()
+    c1, c2 = st.columns(2)
+    with c1:
+        name_a = st.selectbox("📄 Document A", names, index=0, key="cmp_doc_a")
+    with c2:
+        name_b = st.selectbox("📄 Document B", names, index=1, key="cmp_doc_b")
 
-    # 4. LINE GRAPH (Recall Progression over Top-K Chunks)
-    st.subheader("📈 Retrieval Recall Convergence (Line Graph)")
-    k_vals = ["k=1", "k=2", "k=3", "k=4", "k=5", "k=6", "k=7", "k=8", "k=9", "k=10"]
-    vanilla_recall = [42.1, 51.5, 59.8, 64.2, 68.5, 71.0, 72.8, 73.5, 74.0, 74.2]
-    hybrid_recall  = [58.4, 69.8, 78.5, 84.1, 89.2, 91.0, 91.8, 92.2, 92.4, 92.5]
-    graph_recall   = [62.0, 74.5, 83.2, 88.6, 92.1, 93.4, 94.0, 94.3, 94.5, 94.6]
+    if name_a == name_b:
+        st.warning("Choose two different documents.")
+        return
 
-    if HAS_PLOTLY:
-        fig_line = go.Figure()
-        fig_line.add_trace(go.Scatter(x=k_vals, y=vanilla_recall, mode="lines+markers", name="Vanilla RAG", line=dict(color="#ef4444", width=2)))
-        fig_line.add_trace(go.Scatter(x=k_vals, y=hybrid_recall, mode="lines+markers", name="Hybrid RAG (RRF)", line=dict(color="#3b82f6", width=3)))
-        fig_line.add_trace(go.Scatter(x=k_vals, y=graph_recall, mode="lines+markers", name="Multi-Hop Graph RAG", line=dict(color="#10b981", width=3)))
-        fig_line.update_layout(
-            margin=dict(t=20, b=20, l=10, r=10),
-            height=340,
-            yaxis=dict(title="Recall Rate (%)", range=[35, 100]),
-            xaxis=dict(title="Retrieved Chunks (k)")
+    text_a, text_b = raw[name_a], raw[name_b]
+    m = compute_metrics(text_a, text_b)
+
+    st.markdown("---")
+    st.subheader("📊 How similar are they?")
+    st.markdown(f"**{_label(m['topic'])}**")
+
+    k1, k2, k3 = st.columns(3)
+    with k1:
+        st.metric("Topic similarity", f"{m['topic'] * 100:.1f}%")
+        st.progress(min(1.0, m["topic"]))
+        st.caption("How much the two use the same important words, weighted by how often.")
+    with k2:
+        st.metric("Vocabulary overlap", f"{m['vocab'] * 100:.1f}%")
+        st.progress(min(1.0, m["vocab"]))
+        st.caption("Share of all distinct words that appear in both.")
+    with k3:
+        st.metric("Copied-text overlap", f"{m['copied'] * 100:.1f}%")
+        st.progress(min(1.0, m["copied"]))
+        st.caption("Share of identical 5-word sequences. High means shared or copied passages.")
+
+    st.markdown("#### 📋 The two documents")
+    rows = []
+    for label, n, t in (("A", name_a, text_a), ("B", name_b, text_b)):
+        d = meta.get(n, {})
+        rows.append({
+            "": label,
+            "Document": n,
+            "Authority tier": d.get("authorityTier", "-"),
+            "Reliability": f"{d.get('reliabilityScore', '-')}%",
+            "Words": f"{len(_words(t)):,}",
+            "Uploaded": d.get("updated", "-"),
+        })
+    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+
+    st.markdown("---")
+    st.subheader("🔑 Keywords")
+    if m["shared"]:
+        st.markdown("**Most important shared words** (times each appears)")
+        df = pd.DataFrame(
+            {"Document A": [a for _, a, _ in m["shared"]], "Document B": [b for _, _, b in m["shared"]]},
+            index=[w for w, _, _ in m["shared"]],
         )
-        st.plotly_chart(fig_line, use_container_width=True)
+        st.bar_chart(df)
     else:
-        df_line = pd.DataFrame({
-            "Vanilla RAG": vanilla_recall,
-            "Hybrid RAG (RRF)": hybrid_recall,
-            "Multi-Hop Graph RAG": graph_recall
-        }, index=k_vals)
-        st.line_chart(df_line)
+        st.info("These documents share no important words.")
 
-    st.divider()
+    u1, u2 = st.columns(2)
+    with u1:
+        st.markdown("**Only in Document A**")
+        st.write(", ".join(m["only_a"]) or "None")
+    with u2:
+        st.markdown("**Only in Document B**")
+        st.write(", ".join(m["only_b"]) or "None")
 
-    # 5. PERFORMANCE TABLE
-    st.subheader("📋 Architecture Performance Matrix Table")
-    comparison_data = [
-        {"Architecture": "Vanilla RAG (Dense Only)", "Precision": "74.2%", "Recall": "68.5%", "F1-Score": "0.71", "Faithfulness": "78.4%", "Latency": "1.12s"},
-        {"Architecture": "Hybrid RAG (FAISS + BM25 + RRF)", "Precision": "91.8%", "Recall": "89.2%", "F1-Score": "0.90", "Faithfulness": "94.6%", "Latency": "1.34s"},
-        {"Architecture": "Multi-Hop Graph RAG", "Precision": "93.4%", "Recall": "92.1%", "F1-Score": "0.93", "Faithfulness": "96.2%", "Latency": "1.65s"}
-    ]
-    st.dataframe(comparison_data, use_container_width=True)
+    st.markdown("---")
+    st.subheader("🤖 AI comparison")
+    cache = st.session_state.setdefault("doc_compare", {})
+    ckey = f"{name_a}||{name_b}"
+
+    if st.button("✨ Generate AI comparison", key="cmp_ai_btn", type="primary"):
+        with st.spinner("Reading both documents..."):
+            result, error = _ai_compare(name_a, text_a, name_b, text_b)
+        if result:
+            cache[ckey] = result
+        else:
+            st.error(error)
+
+    if ckey in cache:
+        st.markdown(cache[ckey]["text"])
+        st.caption(f"Generated {cache[ckey]['time']}")
+
+    ra = meta.get(name_a, {}).get("reliabilityScore")
+    rb = meta.get(name_b, {}).get("reliabilityScore")
+    if isinstance(ra, (int, float)) and isinstance(rb, (int, float)):
+        st.markdown("---")
+        st.subheader("🏛️ If they disagree, which one wins?")
+        if ra > rb:
+            st.success(f"**{name_a}** takes precedence (reliability {ra}% vs {rb}%).")
+        elif rb > ra:
+            st.success(f"**{name_b}** takes precedence (reliability {rb}% vs {ra}%).")
+        else:
+            st.info("Both have the same reliability, so neither takes precedence. Check the dates.")
