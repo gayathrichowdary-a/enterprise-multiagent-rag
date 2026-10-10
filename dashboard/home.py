@@ -1,6 +1,8 @@
 ﻿# dashboard/home.py
 import streamlit as st
 from dashboard.user_info import get_current_user
+from dashboard.upload import init_knowledge_base_state
+
 # Reuse the existing robot image loader (falls back to an emoji if unavailable)
 try:
     from dashboard.dashboard import get_dashboard_image_b64
@@ -164,9 +166,10 @@ def home_page():
     # ---------------------------------------------------------
     # 3. LIVE PLATFORM TELEMETRY CARDS (GRID LAYOUT)
     # ---------------------------------------------------------
-    docs_count = len(st.session_state.get("vector_stores", {}))
-    sources_data = st.session_state.get("knowledge_sources", {})
-    avg_trust = (sum([v.get("reliability_score", 80) for v in sources_data.values()]) / max(1, len(sources_data))) if sources_data else 95.0
+    init_knowledge_base_state()
+    docs_list = st.session_state.get("documents_list", [])
+    docs_count = len(docs_list)
+    avg_trust = (sum(d.get("reliabilityScore", 0) for d in docs_list) / docs_count) if docs_count else 0.0
 
     c1, c2, c3, c4 = st.columns(4)
     with c1:

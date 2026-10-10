@@ -1,6 +1,7 @@
 ﻿import streamlit as st
 import datetime
 import random
+from dashboard.indexer import index_files
 
 # Initial enterprise source definitions for authority assignment
 DEFAULT_SOURCES = [
@@ -141,47 +142,20 @@ def document_sidebar():
         type=["pdf", "docx", "txt", "csv", "md", "json"],
         accept_multiple_files=True,
         help="Upload PDF, DOCX, TXT, CSV, Markdown, or JSON files to index into vector database.",
-        key="sidebar_doc_uploader"
+        key=f"sidebar_doc_uploader_{st.session_state.get('sb_upload_nonce', 0)}"
     )
 
     if uploaded_files:
         st.success(f"✓ {len(uploaded_files)} file(s) staged for indexing")
         if st.button("⚡ Index Staged Files", key="btn_index_staged", type="primary", use_container_width=True):
-            today_str = datetime.date.today().strftime("%Y-%m-%d")
-            chunk_size = st.session_state.get("chunk_size_slider", 512)
-            
-            tier_short = "Tier 1 (Authoritative)" if "Tier 1" in upload_tier else ("Tier 2 (Internal Verified)" if "Tier 2" in upload_tier else "Tier 3 (Informal / Draft)")
-            initial_rel = 95 if "Tier 1" in upload_tier else (85 if "Tier 2" in upload_tier else 60)
-            initial_status = "Certified" if initial_rel >= 75 else "Under Review"
-
-            added_chunks = 0
-            for f in uploaded_files:
-                file_size_kb = max(1, round(len(f.getvalue()) / 1024, 1)) if hasattr(f, 'getvalue') else 24
-                calc_chunks = max(4, int(file_size_kb * 1024 / chunk_size))
-                added_chunks += calc_chunks
-
-                existing_names = [d["name"] for d in st.session_state["documents_list"]]
-                if f.name not in existing_names:
-                    st.session_state["documents_list"].insert(0, {
-                        "id": f"doc-{random.randint(100, 999)}",
-                        "name": f.name,
-                        "department": upload_dept,
-                        "authorityTier": tier_short,
-                        "reliabilityScore": initial_rel,
-                        "historicalQueries": 1,
-                        "positiveFeedback": 1,
-                        "negativeFeedback": 0,
-                        "chunks": calc_chunks,
-                        "size": f"{file_size_kb} KB",
-                        "status": "Indexed",
-                        "trustStatus": initial_status,
-                        "updated": today_str
-                    })
-
-            st.session_state["total_docs"] = len(st.session_state["documents_list"])
-            st.session_state["vector_chunks"] = st.session_state.get("vector_chunks", 1284) + added_chunks
-            st.toast(f"🎉 Successfully indexed {len(uploaded_files)} file(s) into {added_chunks} vector chunks!")
-            st.rerun()
+            result = index_files(uploaded_files, upload_tier, upload_dept, st.session_state.get("chunk_size_slider", 512))
+            if result["problems"]:
+                st.warning("Could not read: " + " | ".join(result["problems"]))
+            if result["new"] or result["updated"]:
+                st.toast(f"🎉 Indexed {len(result['new'])} new and refreshed {len(result['updated'])} existing file(s).")
+            if not result["problems"]:
+                st.session_state["sb_upload_nonce"] = st.session_state.get("sb_upload_nonce", 0) + 1
+                st.rerun()
 
     # 3. Document Summary
     doc_count = len(st.session_state.get("documents_list", []))
@@ -217,6 +191,7 @@ def document_sidebar():
 
         if st.button("🗑️ Clear All Indexed Documents", key="btn_clear_docs", use_container_width=True):
             st.session_state["documents_list"] = []
+            st.session_state["raw_document_texts"] = {}
             st.session_state["total_docs"] = 0
             st.session_state["vector_chunks"] = 0
             st.toast("Knowledge base cleared.")
@@ -285,50 +260,25 @@ def upload_page():
             "Select files to index into enterprise knowledge store",
             type=["pdf", "docx", "txt", "csv", "md", "json"],
             accept_multiple_files=True,
-            key="page_upload_files"
+            key=f"page_upload_files_{st.session_state.get('upload_nonce', 0)}"
         )
 
         if uploaded_files:
             st.success(f"✓ {len(uploaded_files)} file(s) staged and ready for vectorization.")
             if st.button("⚡ Index Staged Files Now", key="btn_page_index_now", type="primary", use_container_width=True):
-                today_str = datetime.date.today().strftime("%Y-%m-%d")
-                chunk_size = st.session_state.get("page_chunk_size", 512)
-                tier_short = "Tier 1 (Authoritative)" if "Tier 1" in tier_choice else ("Tier 2 (Internal Verified)" if "Tier 2" in tier_choice else "Tier 3 (Informal / Draft)")
-                initial_rel = 96 if "Tier 1" in tier_choice else (88 if "Tier 2" in tier_choice else 55)
-                initial_status = "Certified" if initial_rel >= 75 else "Under Review"
-
-                added_chunks = 0
-                for f in uploaded_files:
-                    file_size_kb = max(1, round(len(f.getvalue()) / 1024, 1)) if hasattr(f, 'getvalue') else 24
-                    calc_chunks = max(4, int(file_size_kb * 1024 / chunk_size))
-                    added_chunks += calc_chunks
-
-                    existing_names = [d["name"] for d in st.session_state["documents_list"]]
-                    if f.name not in existing_names:
-                        st.session_state["documents_list"].insert(0, {
-                            "id": f"doc-{random.randint(100, 999)}",
-                            "name": f.name,
-                            "department": dept_choice,
-                            "authorityTier": tier_short,
-                            "reliabilityScore": initial_rel,
-                            "historicalQueries": 1,
-                            "positiveFeedback": 1,
-                            "negativeFeedback": 0,
-                            "chunks": calc_chunks,
-                            "size": f"{file_size_kb} KB",
-                            "status": "Indexed",
-                            "trustStatus": initial_status,
-                            "updated": today_str
-                        })
-
-                st.session_state["total_docs"] = len(st.session_state["documents_list"])
-                st.session_state["vector_chunks"] = st.session_state.get("vector_chunks", 1284) + added_chunks
-                st.toast(f"🎉 Successfully vectorized {len(uploaded_files)} file(s) into {added_chunks} chunks!")
-                st.rerun()
+                result = index_files(uploaded_files, tier_choice, dept_choice, st.session_state.get("page_chunk_size", 512))
+                if result["problems"]:
+                    st.warning("Could not read: " + " | ".join(result["problems"]))
+                if result["new"] or result["updated"]:
+                    st.toast(f"🎉 Indexed {len(result['new'])} new and refreshed {len(result['updated'])} existing file(s).")
+                if not result["problems"]:
+                    st.session_state["upload_nonce"] = st.session_state.get("upload_nonce", 0) + 1
+                    st.rerun()
 
     with tab_catalog:
         st.markdown("#### Indexed Knowledge Catalog & Chunks")
         if doc_list:
+            raw_texts = st.session_state.get("raw_document_texts", {})
             for i, doc in enumerate(doc_list):
                 col_d1, col_d2, col_d3, col_d4 = st.columns([4, 2, 2, 1])
                 with col_d1:
@@ -347,13 +297,16 @@ def upload_page():
                         st.caption("🟡 Under Review")
                     else:
                         st.caption("🔴 Flagged")
+                    if doc.get("name") in raw_texts:
+                        st.caption("💬 Ready for chat")
                 with col_d4:
                     if st.button("🗑️", key=f"del_doc_page_{i}", help="Remove from index"):
-                        doc_list.pop(i)
+                        removed = doc_list.pop(i)
+                        st.session_state.get("raw_document_texts", {}).pop(removed.get("name"), None)
                         st.session_state["documents_list"] = doc_list
                         st.session_state["total_docs"] = len(doc_list)
                         st.session_state["vector_chunks"] = sum(d.get("chunks", 4) for d in doc_list)
-                        st.toast(f"Removed document")
+                        st.toast("Removed document")
                         st.rerun()
                 st.markdown("---")
         else:
@@ -416,6 +369,7 @@ def upload_page():
         with col_act2:
             if st.button("🗑️ Clear All Indexed Documents", key="btn_page_clear_corpus", use_container_width=True):
                 st.session_state["documents_list"] = []
+                st.session_state["raw_document_texts"] = {}
                 st.session_state["total_docs"] = 0
                 st.session_state["vector_chunks"] = 0
                 st.toast("Corpus cleared.")

@@ -2,6 +2,9 @@ import streamlit as st
 from dashboard.chat import chat_sidebar
 from dashboard.user_info import get_current_user
 def render_sidebar(current_page="Home"):
+    if st.session_state.get("_sidebar_rendered"):
+        return
+    st.session_state["_sidebar_rendered"] = True
     with st.sidebar:
         user_name, user_email = get_current_user()
 

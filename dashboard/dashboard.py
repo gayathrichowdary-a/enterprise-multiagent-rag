@@ -16,7 +16,6 @@ try:
 except Exception:
     def document_sidebar():
         st.markdown("### 📁 Knowledge Base")
-        st.file_uploader("Upload Enterprise Documents", type=["pdf", "docx", "txt", "csv", "md"], key="fb_upload")
     def upload_page():
         st.info("Upload module initialized.")
 
@@ -25,9 +24,8 @@ try:
 except Exception:
     def chat_sidebar():
         st.markdown("### 🤖 Multi-Agent Settings")
-        st.selectbox("Agent Routing Mode", ["Adaptive Multi-Agent", "Hybrid RAG", "Strict Vector"], key="fb_mode")
 
-# Real RAG workflow (no silent echo stub: errors are shown on the page)
+# Real RAG workflow (errors are shown on the page, never hidden)
 _WORKFLOW_ERR = None
 try:
     from agents.agent_workflow import run_workflow
@@ -37,48 +35,37 @@ except Exception:
 
 
 def get_available_documents():
-    """Names of documents the user has uploaded/indexed."""
-    names = list(st.session_state.get("vector_stores", {}).keys())
-    if not names:
-        names = list(st.session_state.get("knowledge_sources", {}).keys())
-    return names
+    """Documents that have real extracted text (newest first)."""
+    raw = st.session_state.get("raw_document_texts", {})
+    return [d["name"] for d in st.session_state.get("documents_list", []) if d.get("name") in raw]
 
 
 def run_rag_pipeline(query, selected_files=None):
-    """Run the real multi-agent workflow, restricted to the selected documents."""
+    """Run the real workflow on the selected documents."""
     if run_workflow is None:
         raise RuntimeError("Could not import agents.agent_workflow.run_workflow:\n" + (_WORKFLOW_ERR or ""))
 
-    try:
-        if selected_files:
-            res = run_workflow(query, selected_files=selected_files)
-        else:
-            res = run_workflow(query)
-    except TypeError:
-        # run_workflow does not accept selected_files
-        res = run_workflow(query)
+    st.session_state["active_chat_sources"] = list(selected_files or [])
+    res = run_workflow(query, selected_files=selected_files)
 
     if not isinstance(res, dict):
         return str(res), [], {}
 
-    answer = (
-        res.get("answer") or res.get("final_answer") or res.get("response")
-        or res.get("result") or res.get("output") or "No answer was returned by the workflow."
-    )
+    answer = res.get("answer") or res.get("response") or "No answer was returned by the workflow."
 
-    raw_sources = res.get("sources") or res.get("citations") or res.get("retrieved_docs") or []
+    docs_by_name = {d.get("name"): d for d in st.session_state.get("documents_list", [])}
     sources = []
-    for s in raw_sources:
-        if isinstance(s, dict):
-            sources.append(s)
-        else:
-            sources.append({"name": str(s)})
+    for name in res.get("sources", []):
+        d = docs_by_name.get(name, {})
+        rel = d.get("reliabilityScore")
+        sources.append({
+            "name": name,
+            "tier": d.get("authorityTier", "Unclassified"),
+            "reliability": f"{rel}%" if rel is not None else "n/a",
+            "snippet": "",
+        })
 
-    ares = res.get("ares_scores", {}) or {}
-    trace = res.get("trace") or res.get("agent_trace") or {}
-    if ares and isinstance(trace, dict):
-        trace = dict(trace)
-        trace.setdefault("ares", ares)
+    trace = {"ares": res.get("ares_scores", {}) or {}}
     return answer, sources, trace
 
 
@@ -157,28 +144,9 @@ def init_session_state():
         st.session_state["chat_messages"] = [
             {
                 "role": "assistant",
-                "content": "👋 **Welcome to the Adaptive Enterprise RAG Platform!**\n\nI can retrieve, synthesize, and verify enterprise knowledge using **multi-agent authority reranking** and **ARES Tri-Judge quality filters**.\n\nAsk a question below or upload custom documents to begin.",
-                "sources": [
-                    {
-                        "id": "src-1",
-                        "name": "Enterprise Security & Compliance Manual v4.2.pdf",
-                        "department": "Legal & InfoSec",
-                        "tier": "Tier 1 (Authoritative)",
-                        "reliability": "98%",
-                        "score": "96%",
-                        "ares_cr": "0.94 (High)",
-                        "ares_af": "0.98 (Verified)",
-                        "ares_ar": "0.92 (Direct)",
-                        "snippet": "All multi-tenant API integrations require mTLS 1.3 encryption and automated compliance scanning before deployment."
-                    }
-                ],
-                "trace": {
-                    "router": "Tier-1 Authoritative Dispatcher",
-                    "retrieval": "Hybrid Vector + BM25",
-                    "confidence": "96%",
-                    "mode": "Adaptive Multi-Agent (Authority-Weighted)",
-                    "ares_status": "ARES Tri-Judge Passed (CR >= 0.75, AF >= 0.85, AR >= 0.80)"
-                }
+                "content": "👋 **Welcome to the Adaptive Enterprise RAG Platform!**\n\nUpload a document on the **Upload Documents** page, select it under **Active Knowledge Source**, and ask me anything about it.",
+                "sources": [],
+                "trace": {},
             }
         ]
 
@@ -194,7 +162,6 @@ def init_session_state():
 
 
 def dashboard():
-    st.write("DEBUG keys:", list(st.session_state.keys()))
     """Main Dashboard view for Enterprise Multi-Agent RAG Platform."""
     init_session_state()
 
@@ -237,38 +204,52 @@ def dashboard():
         </div>
     """, unsafe_allow_html=True)
 
-    # 3. KPI Metric Cards
+    # 3. KPI Metric Cards (live values)
+    docs = st.session_state.get("documents_list", [])
+    n_docs = len(docs)
+    n_chunks = st.session_state.get("vector_chunks", sum(d.get("chunks", 0) for d in docs))
+    avg_rel = round(sum(d.get("reliabilityScore", 0) for d in docs) / n_docs, 1) if n_docs else 0
+    available_docs = get_available_documents()
+
+    last_gf = None
+    for m in reversed(st.session_state["chat_messages"]):
+        ares = (m.get("trace") or {}).get("ares") or {}
+        if ares.get("grounded_faithfulness"):
+            last_gf = ares["grounded_faithfulness"]
+            break
+    gf_text = f"{last_gf * 100:.1f}%" if last_gf is not None else "—"
+
     m1, m2, m3, m4 = st.columns(4)
     with m1:
-        st.markdown("""
+        st.markdown(f"""
             <div class="metric-card">
                 <div style="font-size: 12px; font-weight: 700; color: #64748B; text-transform: uppercase;">Indexed Documents</div>
-                <div style="font-size: 26px; font-weight: 800; color: #2563EB; margin: 6px 0 2px 0;">5 Active</div>
-                <div style="font-size: 12px; color: #10B981; font-weight: 600;">+2 added today</div>
+                <div style="font-size: 26px; font-weight: 800; color: #2563EB; margin: 6px 0 2px 0;">{n_docs} Active</div>
+                <div style="font-size: 12px; color: #10B981; font-weight: 600;">{len(available_docs)} ready for chat</div>
             </div>
         """, unsafe_allow_html=True)
     with m2:
-        st.markdown("""
+        st.markdown(f"""
             <div class="metric-card">
                 <div style="font-size: 12px; font-weight: 700; color: #64748B; text-transform: uppercase;">ARES Faithfulness</div>
-                <div style="font-size: 26px; font-weight: 800; color: #10B981; margin: 6px 0 2px 0;">97.4%</div>
-                <div style="font-size: 12px; color: #10B981; font-weight: 600;">Tri-Judge Verified</div>
+                <div style="font-size: 26px; font-weight: 800; color: #10B981; margin: 6px 0 2px 0;">{gf_text}</div>
+                <div style="font-size: 12px; color: #10B981; font-weight: 600;">Last answer</div>
             </div>
         """, unsafe_allow_html=True)
     with m3:
-        st.markdown("""
+        st.markdown(f"""
             <div class="metric-card">
                 <div style="font-size: 12px; font-weight: 700; color: #64748B; text-transform: uppercase;">Source Reliability</div>
-                <div style="font-size: 26px; font-weight: 800; color: #8B5CF6; margin: 6px 0 2px 0;">94.8%</div>
+                <div style="font-size: 26px; font-weight: 800; color: #8B5CF6; margin: 6px 0 2px 0;">{avg_rel}%</div>
                 <div style="font-size: 12px; color: #6366F1; font-weight: 600;">Authority-Weighted</div>
             </div>
         """, unsafe_allow_html=True)
     with m4:
-        st.markdown("""
+        st.markdown(f"""
             <div class="metric-card">
                 <div style="font-size: 12px; font-weight: 700; color: #64748B; text-transform: uppercase;">Vector Chunks</div>
-                <div style="font-size: 26px; font-weight: 800; color: #F59E0B; margin: 6px 0 2px 0;">894 Chunks</div>
-                <div style="font-size: 12px; color: #64748B; font-weight: 600;">HNSW Indexed</div>
+                <div style="font-size: 26px; font-weight: 800; color: #F59E0B; margin: 6px 0 2px 0;">{n_chunks:,} Chunks</div>
+                <div style="font-size: 12px; color: #64748B; font-weight: 600;">Estimated</div>
             </div>
         """, unsafe_allow_html=True)
 
@@ -277,9 +258,7 @@ def dashboard():
     # 4. Interactive Chat Console
     st.subheader("💬 Interactive Multi-Agent Chat Console")
 
-    # Active Knowledge Source selector (choose which document(s) to ask about)
     st.markdown("##### 📂 Active Knowledge Source")
-    available_docs = get_available_documents()
     col_sel, col_clear = st.columns([5, 1])
     with col_sel:
         if available_docs:
@@ -291,7 +270,7 @@ def dashboard():
             )
         else:
             selected_files = []
-            st.info("No documents uploaded yet. Go to **Upload Documents** to add files.")
+            st.info("No readable documents yet. Go to **Upload Documents**, upload a file and click **Index Staged Files Now**.")
     with col_clear:
         st.write("")
         if st.button("🗑️ Clear Chat", key="main_clear_chat_btn", use_container_width=True):
@@ -306,16 +285,25 @@ def dashboard():
             with st.chat_message("assistant", avatar="🤖"):
                 st.markdown(msg["content"])
                 if msg.get("sources"):
-                    with st.expander("📚 Retrieved Grounding Sources & Reliability", expanded=False):
+                    with st.expander("📚 Source documents", expanded=False):
                         for s in msg["sources"]:
-                            st.markdown(f"**[{s.get('tier', 'Tier 1')}] {s.get('name')}** (Reliability: {s.get('reliability', '95%')})")
-                            st.caption(f"> {s.get('snippet', '')}")
+                            st.markdown(f"**[{s.get('tier', 'Unclassified')}] {s.get('name')}** (Reliability: {s.get('reliability', 'n/a')})")
+                            if s.get("snippet"):
+                                st.caption(f"> {s['snippet']}")
+                ares = (msg.get("trace") or {}).get("ares") or {}
+                if ares:
+                    st.caption(
+                        "🛡️ ARES-inspired (heuristic) — "
+                        f"Context: {ares.get('context_relevance', 0) * 100:.0f}% | "
+                        f"Faithfulness: {ares.get('grounded_faithfulness', 0) * 100:.0f}% | "
+                        f"Answer: {ares.get('answer_relevance', 0) * 100:.0f}%"
+                    )
 
-    # Query Input
-    user_query = st.chat_input("Ask a question across indexed enterprise documents...")
+    # Query input (also accepts the sidebar quick-prompt buttons)
+    user_query = st.chat_input("Ask a question about your selected documents...") or st.session_state.pop("pending_query", None)
     if user_query:
-        if available_docs and not selected_files:
-            st.warning("Please select at least one document in 'Active Knowledge Source' first.")
+        if not selected_files:
+            st.warning("Select at least one document in 'Active Knowledge Source' first.")
             st.stop()
 
         st.session_state["chat_messages"].append({"role": "user", "content": user_query})
@@ -335,7 +323,7 @@ def dashboard():
                     "role": "assistant",
                     "content": response_text,
                     "sources": sources,
-                    "trace": trace
+                    "trace": trace,
                 })
         st.rerun()
 
