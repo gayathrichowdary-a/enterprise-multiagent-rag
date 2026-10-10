@@ -6,9 +6,8 @@ langchain-core
 langchain-community
 langchain-groq
 langgraph
-
+grok
 sentence-transformers
-
+pandas
 plotly
-
 google-generativeai
