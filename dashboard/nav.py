@@ -1,10 +1,14 @@
 import streamlit as st
 from dashboard.chat import chat_sidebar
 from dashboard.user_info import get_current_user
+
+
 def render_sidebar(current_page="Home"):
+    # Draw the sidebar only once per run (pages that call it again are ignored)
     if st.session_state.get("_sidebar_rendered"):
         return
     st.session_state["_sidebar_rendered"] = True
+
     with st.sidebar:
         user_name, user_email = get_current_user()
 
@@ -28,23 +32,12 @@ def render_sidebar(current_page="Home"):
             </div>
         """, unsafe_allow_html=True)
 
-        # 3. Theme & Logout Controls
+        # 3. Theme Control (the only place this toggle is created)
         is_dark = st.session_state.get("dark_mode", False)
         dark_toggle = st.toggle("🌙 Dark Mode", value=is_dark, key="sb_dark_toggle")
         if dark_toggle != is_dark:
             st.session_state["dark_mode"] = dark_toggle
             st.rerun()
-        col_t1, col_t2 = st.columns([2, 1])
-        with col_t1:
-            dark_toggle = st.toggle("🌙 Dark Mode", value=is_dark, key="sb_dark_toggle")
-            if dark_toggle != is_dark:
-                st.session_state["dark_mode"] = dark_toggle
-                st.rerun()
-        with col_t2:
-            if st.button("Logout", key="sb_logout_btn", use_container_width=True):
-                st.session_state["logged_in"] = False
-                st.session_state["page"] = "login"
-                st.rerun()
 
         st.markdown("---")
 
@@ -56,9 +49,9 @@ def render_sidebar(current_page="Home"):
             ("Chat", "chat", "💬", "Multi-Agent Console"),
             ("Compare Documents", "compare", "⚖️", "Corpus Diff & Benchmarks"),
             ("Knowledge Graph", "graph", "🕸️", "Entity-Relation Graph"),
-            ("Settings", "settings", "⚙️", "Agent & Model Configs"),
-            ("Memory", "memory", "🧠", "Episodic Working Buffer"),
-            ("History", "history", "📜", "Execution Traces & Audit")
+            ("Settings", "settings", "⚙️", "Account & Logout"),
+            ("Memory", "memory", "🧠", "Documents, Key Points & Resources"),
+            ("History", "history", "📜", "Your Past Questions")
         ]
 
         current_active = st.session_state.get("page", "home").lower()
