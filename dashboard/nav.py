@@ -1,11 +1,9 @@
 import streamlit as st
 from dashboard.chat import chat_sidebar
-
+from dashboard.user_info import get_current_user
 def render_sidebar(current_page="Home"):
     with st.sidebar:
-        user_obj = st.session_state.get("user", {})
-        user_name = user_obj.get("name") or st.session_state.get("user_name") or "Ahemaraju Siri"
-        user_email = user_obj.get("email") or st.session_state.get("user_email") or "siri@enterprise.ai"
+        user_name, user_email = get_current_user()
 
         # 1. Branding Header
         st.markdown("""

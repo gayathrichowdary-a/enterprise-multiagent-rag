@@ -1,6 +1,6 @@
 ﻿# dashboard/home.py
 import streamlit as st
-
+from dashboard.user_info import get_current_user
 # Reuse the existing robot image loader (falls back to an emoji if unavailable)
 try:
     from dashboard.dashboard import get_dashboard_image_b64
@@ -56,6 +56,8 @@ def home_page():
         graph_bg = "#090d16"
         node_fill = "#1e293b"
         node_font = "#ffffff"
+        hero_title = "#ffffff"
+        hero_text = "#cbd5e1"
     else:
         bg_card = "#ffffff"
         border_card = "#e2e8f0"
@@ -66,6 +68,8 @@ def home_page():
         graph_bg = "#ffffff"
         node_fill = "#ffffff"
         node_font = "#000000"
+        hero_title = "#000000"
+        hero_text = "#000000"
 
     st.markdown(f"""
         <style>
@@ -78,12 +82,12 @@ def home_page():
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25);
         }}
         .hero-banner h3 {{
-            color: #ffffff !important;
+            color: {hero_title} !important;
             font-size: 1.55rem !important;
             font-weight: 800 !important;
         }}
         .hero-banner p {{
-            color: #cbd5e1 !important;
+            color: {hero_text} !important;
             font-size: 0.96rem !important;
         }}
         .stat-card {{
@@ -134,8 +138,7 @@ def home_page():
     # ---------------------------------------------------------
     # 2. HERO GREETING BANNER
     # ---------------------------------------------------------
-    user = st.session_state.get("user", {})
-    user_name = user.get("full_name") or user.get("name", "Gayathri")
+    user_name, _ = get_current_user()
 
     # Small robot image shown on the right side of the welcome banner
     img_b64 = get_dashboard_image_b64()
