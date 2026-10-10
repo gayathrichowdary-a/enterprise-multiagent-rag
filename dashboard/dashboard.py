@@ -25,6 +25,13 @@ except Exception:
     def chat_sidebar():
         st.markdown("### 🤖 Multi-Agent Settings")
 
+# Saves each question to the History page
+try:
+    from dashboard.history_store import log_query
+except Exception:
+    def log_query(query, answer, sources, trace, files):
+        pass
+
 # Real RAG workflow (errors are shown on the page, never hidden)
 _WORKFLOW_ERR = None
 try:
@@ -262,12 +269,28 @@ def dashboard():
     col_sel, col_clear = st.columns([5, 1])
     with col_sel:
         if available_docs:
-            selected_files = st.multiselect(
-                "Files to route queries to:",
-                options=available_docs,
-                default=available_docs[:1],
-                key="active_files_select",
-            )
+            # Documents restored from the History page take priority
+            restored = [f for f in (st.session_state.pop("restore_files", None) or []) if f in available_docs]
+            if restored:
+                st.session_state["active_files_select"] = restored
+
+            if "active_files_select" in st.session_state:
+                # Drop selections for documents that were deleted since
+                st.session_state["active_files_select"] = [
+                    f for f in st.session_state["active_files_select"] if f in available_docs
+                ]
+                selected_files = st.multiselect(
+                    "Files to route queries to:",
+                    options=available_docs,
+                    key="active_files_select",
+                )
+            else:
+                selected_files = st.multiselect(
+                    "Files to route queries to:",
+                    options=available_docs,
+                    default=available_docs[:1],
+                    key="active_files_select",
+                )
         else:
             selected_files = []
             st.info("No readable documents yet. Go to **Upload Documents**, upload a file and click **Index Staged Files Now**.")
@@ -325,6 +348,7 @@ def dashboard():
                     "sources": sources,
                     "trace": trace,
                 })
+                log_query(user_query, response_text, sources, trace, selected_files)
         st.rerun()
 
 
