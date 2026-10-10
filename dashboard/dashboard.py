@@ -194,6 +194,7 @@ def init_session_state():
 
 
 def dashboard():
+    st.write("DEBUG keys:", list(st.session_state.keys()))
     """Main Dashboard view for Enterprise Multi-Agent RAG Platform."""
     init_session_state()
 
