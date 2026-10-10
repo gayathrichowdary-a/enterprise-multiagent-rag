@@ -30,6 +30,10 @@ def render_sidebar(current_page="Home"):
 
         # 3. Theme & Logout Controls
         is_dark = st.session_state.get("dark_mode", False)
+        dark_toggle = st.toggle("🌙 Dark Mode", value=is_dark, key="sb_dark_toggle")
+        if dark_toggle != is_dark:
+            st.session_state["dark_mode"] = dark_toggle
+            st.rerun()
         col_t1, col_t2 = st.columns([2, 1])
         with col_t1:
             dark_toggle = st.toggle("🌙 Dark Mode", value=is_dark, key="sb_dark_toggle")
