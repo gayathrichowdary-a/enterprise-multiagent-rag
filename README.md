@@ -297,13 +297,13 @@ Screenshots of the actual running application are provided to demonstrate the us
 
 ![Knowledge Graph](images/knowledge-graph.png)
 
-### 6. Document Comparison
+### 6. Document-Comparison
 
 ![Document Comparison](images/document-comparison.png)
 
-### 7. Conversation Memory and Query History
+### 7. Conversation Memory 
 
-![Query History](images/query-history.png)
+![chat History](images/chat-history.png)
 
 ### 8. Settings Page
 
