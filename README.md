@@ -277,7 +277,7 @@ The application should open in a browser. Confirm that all required configuratio
 
 Screenshots of the actual running application are provided to demonstrate the user interface and main features.
 
-### 1. Login and Signup Pages
+### 1. Login Page
 
 ![Login page](images/login.png)
 
@@ -301,7 +301,7 @@ Screenshots of the actual running application are provided to demonstrate the us
 
 ![Document Comparison](images/document-comparison.png)
 
-### 7. Conversation Memory 
+### 7. chat history
 
 ![chat History](images/chat-history.png)
 
