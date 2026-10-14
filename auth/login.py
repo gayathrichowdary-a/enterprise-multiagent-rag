@@ -3,6 +3,54 @@ import base64
 import streamlit as st
 from auth.database import verify_user
 
+
+def get_real_email(username, typed_value=""):
+    """Return the real email for a user.
+
+    Order of preference:
+    1. What the user typed, if it was an email address.
+    2. The email stored in the database (tries common helper names in auth.database).
+    3. Empty string (never a made-up address).
+    """
+    if typed_value and "@" in typed_value:
+        return typed_value
+
+    try:
+        import auth.database as db
+    except Exception:
+        return ""
+
+    # Helpers that return just the email
+    for fn_name in ("get_user_email", "get_email", "get_email_by_username"):
+        fn = getattr(db, fn_name, None)
+        if callable(fn):
+            try:
+                result = fn(username)
+                if isinstance(result, str) and "@" in result:
+                    return result
+            except Exception:
+                pass
+
+    # Helpers that return a whole user record (dict, tuple or list)
+    for fn_name in ("get_user", "get_user_by_username", "get_user_details", "get_user_info"):
+        fn = getattr(db, fn_name, None)
+        if callable(fn):
+            try:
+                result = fn(username)
+                if isinstance(result, dict):
+                    email = result.get("email") or result.get("user_email") or result.get("mail")
+                    if isinstance(email, str) and "@" in email:
+                        return email
+                elif isinstance(result, (tuple, list)):
+                    for item in result:
+                        if isinstance(item, str) and "@" in item:
+                            return item
+            except Exception:
+                pass
+
+    return ""
+
+
 def get_login_image_b64():
     # Base directory relative to this file
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -132,7 +180,9 @@ def login_page():
             else:
                 is_valid, username = verify_user(u_clean, p_clean)
                 if is_valid:
-                    email_addr = u_clean if "@" in u_clean else f"{username}@company.com"
+                    # FIX: use the real email (typed email or the one stored in the DB)
+                    # instead of fabricating "<username>@company.com"
+                    email_addr = get_real_email(username, u_clean)
                     st.session_state.user = {
                         "username": username,
                         "name": username.capitalize(),
