@@ -347,7 +347,6 @@ def render_sidebar(current_page="Home"):
             <div style="background: var(--card-grad); border: 1px solid var(--border); padding: 12px 14px; border-radius: 12px; margin-bottom: 14px;">
                 <div style="font-weight: 700; font-size: 14px; color: var(--accent);">👤 {user_name}</div>
                 <div style="font-size: 11px; color: var(--muted);">{user_email}</div>
-                <div style="font-size: 10px; color: var(--accent-soft); margin-top: 4px; font-weight: 600;">NMR Engineering College • Batch 05</div>
             </div>
         """, unsafe_allow_html=True)
 
