@@ -124,7 +124,44 @@ def apply_theme():
             color: var(--text) !important;
         }
 
-        /* Expanders, chat messages, metrics, alerts, file uploader */
+        /* Tooltips (the white hover boxes) -> dark */
+        [data-testid="stTooltipContent"],
+        [data-baseweb="tooltip"],
+        [data-baseweb="tooltip"] > div,
+        div[role="tooltip"],
+        div[role="tooltip"] > div {
+            background-color: var(--card) !important;
+            color: var(--text) !important;
+            border: 1px solid var(--border) !important;
+            border-radius: 8px !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+        }
+        [data-testid="stTooltipContent"] *,
+        div[role="tooltip"] * {
+            color: var(--text) !important;
+            background-color: transparent !important;
+        }
+
+        /* Dropdown menus / popovers -> dark */
+        [data-baseweb="popover"],
+        [data-baseweb="popover"] > div,
+        [data-baseweb="menu"],
+        [data-baseweb="menu"] ul,
+        ul[role="listbox"] {
+            background-color: var(--card) !important;
+            color: var(--text) !important;
+        }
+        [data-baseweb="menu"] li,
+        ul[role="listbox"] li {
+            background-color: var(--card) !important;
+            color: var(--text) !important;
+        }
+        [data-baseweb="menu"] li:hover,
+        ul[role="listbox"] li:hover {
+            background-color: var(--input-bg) !important;
+        }
+
+        /* Expanders, chat messages, metrics, file uploader */
         [data-testid="stExpander"],
         [data-testid="stChatMessage"],
         [data-testid="stMetric"],
@@ -233,7 +270,8 @@ def render_sidebar(current_page="Home"):
             is_active = (current_active == page_key)
             btn_label = f"{icon} {label}" + ("  ◀" if is_active else "")
             btn_type = "primary" if is_active else "secondary"
-            if st.button(btn_label, key=f"sb_nav_btn_{page_key}", type=btn_type, use_container_width=True, help=desc):
+            # NOTE: no help=desc here -> no white hover tooltip over the buttons
+            if st.button(btn_label, key=f"sb_nav_btn_{page_key}", type=btn_type, use_container_width=True):
                 st.session_state["page"] = page_key
                 st.session_state["nav_selection"] = label
                 st.rerun()
