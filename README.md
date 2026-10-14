@@ -274,21 +274,43 @@ streamlit run app.py
 The application should open in a browser. Confirm that all required configuration values and model access are available before running it.
 
 ## 12. Screenshots
+## 12. Screenshots
 
 Screenshots of the actual running application are provided to demonstrate the user interface and main features.
 
-The recommended screenshots are:
+### 1. Login and Signup Pages
 
-1. Login and signup pages
-2. Main dashboard or home page
-3. Enterprise document upload page
-4. Chat interface showing a query and answer
-5. Knowledge graph visualization
-6. Document comparison page
-7. Conversation memory or chat history
-8. Settings page
+![Login page](images/login.png)
 
-See the `docs/images/` directory for the screenshots included in this documentation.
+### 2. Main Dashboard
+
+![Main Dashboard](images/dashboard.png)
+
+### 3. Enterprise Document Upload
+
+![Enterprise Document Upload](images/document-upload.png)
+
+### 4. Chat Interface
+
+![Chat Interface](images/chat.png)
+
+### 5. Knowledge Graph Visualization
+
+![Knowledge Graph](images/knowledge-graph.png)
+
+### 6. Document Comparison
+
+![Document Comparison](images/document-comparison.png)
+
+### 7. Conversation Memory and Query History
+
+![Query History](images/query-history.png)
+
+### 8. Settings Page
+
+![Settings Page](images/settings.png)
+
+See the 'images/` directory for the screenshots included in this documentation.
 
 ## 13. Limitations
 
