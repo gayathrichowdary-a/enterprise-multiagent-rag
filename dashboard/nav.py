@@ -44,8 +44,12 @@ def apply_theme():
     is_dark = st.session_state.get("dark_mode", False)
     t = DARK if is_dark else LIGHT
 
+    # NOTE: @import must be the FIRST rule in the stylesheet, otherwise the
+    # browser ignores it. That is why it sits right after <style>.
     css = f"""
     <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
     :root {{
         --bg: {t['bg']};
         --sidebar-bg: {t['sidebar_bg']};
@@ -59,6 +63,50 @@ def apply_theme():
         --input-bg: {t['input_bg']};
         --btn-bg: {t['btn_bg']};
     }}
+    """
+
+    # Global polish (applies to light + dark)
+    css += """
+    html, body, .stApp, [data-testid="stSidebar"] button, input, textarea {
+        font-family: 'Inter', sans-serif !important;
+    }
+
+    /* Cleaner page width and spacing */
+    .block-container {
+        padding-top: 2rem !important;
+        max-width: 1200px !important;
+    }
+
+    /* Headings */
+    h1 { font-weight: 800 !important; letter-spacing: -0.02em; }
+    h2, h3 { font-weight: 700 !important; letter-spacing: -0.01em; }
+
+    /* Metric cards */
+    [data-testid="stMetric"] {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 16px 18px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    }
+
+    /* Buttons */
+    .stButton > button {
+        border-radius: 10px;
+        font-weight: 600;
+        transition: all 0.15s ease;
+    }
+    .stButton > button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.18);
+    }
+
+    /* Bordered containers and dataframes */
+    [data-testid="stVerticalBlockBorderWrapper"] { border-radius: 14px; }
+    [data-testid="stDataFrame"] { border-radius: 12px; overflow: hidden; }
+
+    /* Hide Streamlit footer */
+    footer { visibility: hidden; }
     """
 
     # Only override Streamlit's own widgets in dark mode.
