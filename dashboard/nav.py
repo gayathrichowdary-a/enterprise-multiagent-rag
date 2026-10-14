@@ -99,17 +99,44 @@ def apply_theme():
         }
         hr { border-color: var(--border) !important; }
 
-        /* Inputs */
-        .stTextInput input,
-        .stTextArea textarea,
-        .stNumberInput input,
+        /* Inputs: the OUTER wrapper carries background + border */
         [data-testid="stChatInput"] textarea,
         [data-baseweb="select"] > div,
-        [data-baseweb="input"] {
+        [data-baseweb="input"],
+        [data-baseweb="base-input"] {
             background-color: var(--input-bg) !important;
             color: var(--text) !important;
             border-color: var(--border) !important;
         }
+        /* The INNER field is transparent with no border (fixes the double border) */
+        .stTextInput input,
+        .stTextArea textarea,
+        .stNumberInput input {
+            background-color: transparent !important;
+            border: none !important;
+            color: var(--text) !important;
+            caret-color: var(--text) !important;
+            -webkit-text-fill-color: var(--text) !important;
+        }
+        /* Disabled fields: keep the value readable (fixes the invisible text) */
+        .stTextInput input:disabled,
+        .stTextArea textarea:disabled,
+        .stNumberInput input:disabled {
+            color: var(--text) !important;
+            -webkit-text-fill-color: var(--text) !important;
+            opacity: 1 !important;
+            cursor: not-allowed;
+        }
+        [data-baseweb="input"]:has(input:disabled),
+        [data-baseweb="base-input"]:has(input:disabled) {
+            opacity: 1 !important;
+        }
+
+        /* Bordered containers (st.container(border=True)) */
+        [data-testid="stVerticalBlockBorderWrapper"] {
+            border-color: var(--border) !important;
+        }
+
         /* ---- Bottom chat-input bar: one uniform dark box, no white ---- */
         [data-testid="stBottom"],
         [data-testid="stBottom"] > div,
