@@ -63,3 +63,32 @@ def verify_user(username_or_email, password):
     if row and row[1] == hash_pw(password):
         return True, row[0]
     return False, None
+
+# ---- NEW: read the saved email back from the database ----
+def get_user_email(username):
+    """Return the email saved for this username (or email), or '' if not found."""
+    create_database()
+    val = (username or "").strip().lower()
+    if not val:
+        return ""
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute("SELECT email FROM users WHERE username = ? OR email = ?", (val, val))
+    row = c.fetchone()
+    conn.close()
+    return row[0] if row and row[0] else ""
+
+def get_user(username):
+    """Return a dict with username and email for this user, or None if not found."""
+    create_database()
+    val = (username or "").strip().lower()
+    if not val:
+        return None
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute("SELECT username, email FROM users WHERE username = ? OR email = ?", (val, val))
+    row = c.fetchone()
+    conn.close()
+    if row:
+        return {"username": row[0], "email": row[1]}
+    return None
