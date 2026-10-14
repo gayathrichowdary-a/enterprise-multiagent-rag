@@ -274,7 +274,6 @@ streamlit run app.py
 The application should open in a browser. Confirm that all required configuration values and model access are available before running it.
 
 ## 12. Screenshots
-## 12. Screenshots
 
 Screenshots of the actual running application are provided to demonstrate the user interface and main features.
 
