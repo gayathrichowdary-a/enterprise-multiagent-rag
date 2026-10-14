@@ -65,6 +65,8 @@ def apply_theme():
     # (Light mode uses Streamlit's defaults plus the variables above.)
     if is_dark:
         css += """
+        html { color-scheme: dark; }
+
         /* App shell */
         .stApp,
         [data-testid="stApp"],
@@ -108,8 +110,43 @@ def apply_theme():
             color: var(--text) !important;
             border-color: var(--border) !important;
         }
+        /* ---- Bottom chat-input bar: one uniform dark box, no white ---- */
+        [data-testid="stBottom"],
+        [data-testid="stBottom"] > div,
+        [data-testid="stBottom"] > div > div,
+        [data-testid="stBottomBlockContainer"],
+        [data-testid="stBottomBlockContainer"] > div,
+        .stChatFloatingInputContainer,
+        div:has(> [data-testid="stChatInput"]),
+        div:has(> div > [data-testid="stChatInput"]) {
+            background: var(--bg) !important;
+            box-shadow: none !important;
+        }
+        /* the outer rounded box carries the color + border */
         [data-testid="stChatInput"] {
-            background-color: var(--input-bg) !important;
+            background: var(--input-bg) !important;
+            border: 1px solid var(--border) !important;
+            border-radius: 12px !important;
+            color: var(--text) !important;
+        }
+        /* every inner wrapper is transparent so no black rectangle shows */
+        [data-testid="stChatInput"] div,
+        [data-testid="stChatInput"] [data-baseweb="textarea"],
+        [data-testid="stChatInput"] [data-baseweb="base-input"] {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+        [data-testid="stChatInput"] textarea {
+            background: transparent !important;
+            color: var(--text) !important;
+            caret-color: var(--text) !important;
+            -webkit-text-fill-color: var(--text) !important;
+        }
+        [data-testid="stChatInput"] textarea::placeholder {
+            color: var(--muted) !important;
+            -webkit-text-fill-color: var(--muted) !important;
+            opacity: 1 !important;
         }
 
         /* Buttons (secondary) */
