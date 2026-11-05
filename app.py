@@ -2,6 +2,7 @@
 import sys
 import base64
 import streamlit as st
+import importlib
 
 # Configure page settings
 st.set_page_config(
@@ -319,15 +320,38 @@ from dashboard.home import home_page
 from dashboard.upload import upload_page
 from dashboard.dashboard import dashboard
 
-try:
-    from dashboard.compare import compare_page as comparison_page
-except Exception:
-    def comparison_page(): st.info("Comparison module loaded.")
+def _load_page(module_names, func_names, label):
+    """Try several module/function names; if all fail, show the real error on screen."""
+    last_err = "Module not found"
+    for mod_name in module_names:
+        try:
+            mod = importlib.import_module(mod_name)
+        except Exception as e:
+            last_err = f"{mod_name}: {type(e).__name__}: {e}"
+            continue
+        for fn in func_names:
+            if hasattr(mod, fn):
+                return getattr(mod, fn)
+        last_err = f"{mod_name} loaded, but has none of these functions: {func_names}"
 
-try:
-    from dashboard.graph import knowledge_graph_page
-except Exception:
-    def knowledge_graph_page(): st.info("Knowledge Graph module loaded.")
+    err_text = last_err
+
+    def _fallback():
+        st.error(f"{label} page failed to load.")
+        st.code(err_text)
+    return _fallback
+
+comparison_page = _load_page(
+    ["dashboard.compare"],
+    ["comparison_page", "compare_page"],
+    "Compare Documents",
+)
+
+knowledge_graph_page = _load_page(
+    ["dashboard.graph", "dashboard.knowledge_graph", "dashboard.kg"],
+    ["knowledge_graph_page"],
+    "Knowledge Graph",
+)
 
 try:
     from dashboard.settings import settings_page
