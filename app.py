@@ -342,13 +342,13 @@ def _load_page(module_names, func_names, label):
     return _fallback
 
 comparison_page = _load_page(
-    ["dashboard.compare"],
+    ["dashboard.comparison", "dashboard.compare"],
     ["comparison_page", "compare_page"],
     "Compare Documents",
 )
 
 knowledge_graph_page = _load_page(
-    ["dashboard.graph", "dashboard.knowledge_graph", "dashboard.kg"],
+    ["dashboard.graph_view", "dashboard.graph", "dashboard.knowledge_graph"],
     ["knowledge_graph_page"],
     "Knowledge Graph",
 )
